@@ -172,6 +172,10 @@ export function Movement({
     return [...map.values()].sort((a, b) => String(a.date).localeCompare(String(b.date)));
   }, [report, selected]);
 
+  const usdHolding = selected?.ccy === "USD";
+  const fxChartLines = usdHolding ? priceLines.map((l) => ({ ...l, name: l.name })) : fxLines;
+  const fxChartData = usdHolding ? priceData : fxMoveData;
+
   const fxLevel = report.fxChart.map((p) => ({ date: p.date, value: p[fxPair] }));
   const fxBase = fxLevel.find((p) => p.value != null)?.value;
   const fxData = fxBase ? fxLevel.map((p) => ({ date: p.date, xe: p.value == null ? null : (p.value / fxBase) * 100 })) : [];
@@ -261,9 +265,13 @@ export function Movement({
         <div className="min-w-0 border border-line bg-card">
           <div className="border-b border-line px-4 py-3">
             <h3 className="font-serif text-lg">FX movement</h3>
-            <p className="text-xs text-muted">Change in the XE rate since the first print in the window. A US dollar holding has no currency move, so it is left off unless you select it.</p>
+            <p className="text-xs text-muted">
+              {usdHolding
+                ? "This holding is in US dollars, so the rate does not move. The line is the price movement."
+                : "Change in the XE rate since the first print in the window."}
+            </p>
           </div>
-          <SeriesChart data={fxMoveData} lines={fxLines} format="pct" height={300} />
+          <SeriesChart data={fxChartData} lines={fxChartLines} format="pct" height={300} />
         </div>
       </div>
 

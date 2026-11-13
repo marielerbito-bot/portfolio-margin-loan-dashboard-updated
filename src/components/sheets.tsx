@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { PriceChart, SeriesChart } from "@/components/charts";
+import { MoveLevelChart, PriceChart, SeriesChart } from "@/components/charts";
 import { fmtDate, fmtFx, fmtMonth, fmtNum, fmtPct, fmtQty, fmtUsd, Signed, tone } from "@/components/format";
-import { CHART_MAX, CHART_MIN, POSITIONS, POSITION_COLOR, REALIZED, REPORT_MAX, REPORT_MIN, SHAREHOLDER, UNDERLYINGS, type CarryIndicator, type ChartPoint, type MovePeriod, type Report } from "@/lib/finance";
+import { CHART_MAX, CHART_MIN, POSITIONS, REALIZED, REPORT_MAX, REPORT_MIN, SHAREHOLDER, UNDERLYINGS, type CarryIndicator, type ChartPoint, type MovePeriod, type Report } from "@/lib/finance";
 
 const PERIODS: { id: MovePeriod; label: string }[] = [
   { id: "day", label: "Daily" },
@@ -48,13 +48,6 @@ function span(pts: ChartPoint[] | undefined, key: "price" | "usd" | "fx") {
   const a = usable[0][key] as number;
   const b = usable[usable.length - 1][key] as number;
   return b / a - 1;
-}
-
-function rebase(pts: ChartPoint[] | undefined, key: "price" | "usd" | "fx") {
-  if (!pts?.length) return [] as { date: string; value: number | null }[];
-  const base = pts.find((p) => p[key] != null && Number(p[key]) !== 0)?.[key] as number | undefined;
-  if (base == null) return [];
-  return pts.map((p) => ({ date: p.date, value: p[key] == null ? null : (p[key] as number) / base - 1 }));
 }
 
 function windowTrend(pct: number | null) {
@@ -136,45 +129,14 @@ export function Movement({
       ? { name: ranked[ranked.length - 1].name, pct: ranked[ranked.length - 1].pricePct, note: "Weakest price in the window" }
       : null;
 
-  const priceLines = (selected ? [selected] : POSITIONS.filter((p) => p.acquired <= report.reportingDate))
-    .filter((p) => (report.charts[p.id] || []).some((pt) => pt.price != null))
-    .map((p) => ({ key: p.id, name: p.short, color: POSITION_COLOR[p.id] }));
-  const fxLines = (selected ? [selected] : POSITIONS.filter((p) => p.acquired <= report.reportingDate && p.ccy !== "USD"))
-    .filter((p) => (report.charts[p.id] || []).some((pt) => pt.fx != null))
-    .filter((p, i, arr) => arr.findIndex((q) => q.ccy === p.ccy) === i)
-    .map((p) => ({ key: p.ccy, name: p.ccy, color: POSITION_COLOR[p.id] }));
-
-  const priceData = useMemo(() => {
-    const ids = priceLines.map((l) => l.key);
-    const map = new Map<string, Record<string, string | number | null>>();
-    for (const id of ids) {
-      for (const pt of rebase(report.charts[id], "price")) {
-        const row = map.get(pt.date) || { date: pt.date };
-        row[id] = pt.value;
-        map.set(pt.date, row);
-      }
-    }
-    return [...map.values()].sort((a, b) => String(a.date).localeCompare(String(b.date)));
-  }, [report, priceLines]);
-
-  const fxMoveData = useMemo(() => {
-    const held = selected ? [selected] : POSITIONS.filter((p) => p.acquired <= report.reportingDate && p.ccy !== "USD");
-    const byCcy = new Map<string, string>();
-    for (const p of held) if (!byCcy.has(p.ccy) && (report.charts[p.id] || []).some((pt) => pt.fx != null)) byCcy.set(p.ccy, p.id);
-    const map = new Map<string, Record<string, string | number | null>>();
-    for (const [ccy, id] of byCcy) {
-      for (const pt of rebase(report.charts[id], "fx")) {
-        const row = map.get(pt.date) || { date: pt.date };
-        row[ccy] = pt.value;
-        map.set(pt.date, row);
-      }
-    }
-    return [...map.values()].sort((a, b) => String(a.date).localeCompare(String(b.date)));
-  }, [report, selected]);
-
-  const usdHolding = selected?.ccy === "USD";
-  const fxChartLines = usdHolding ? priceLines.map((l) => ({ ...l, name: l.name })) : fxLines;
-  const fxChartData = usdHolding ? priceData : fxMoveData;
+  const priceLevel = selected
+    ? (report.charts[selected.id] || []).filter((p) => p.price != null).map((p) => ({ date: p.date, value: p.price }))
+    : [];
+  const fxLevelSeries = selected
+    ? (report.charts[selected.id] || []).filter((p) => p.fx != null).map((p) => ({ date: p.date, value: p.fx }))
+    : [];
+  const purchasePrice = selected?.units ? selected.cost / selected.units : selected?.cost ?? null;
+  const initialSpot = selected?.entryFx ?? null;
 
   const fxLevel = report.fxChart.map((p) => ({ date: p.date, value: p[fxPair] }));
   const fxBase = fxLevel.find((p) => p.value != null)?.value;
@@ -205,7 +167,7 @@ export function Movement({
       <SectionTitle
         kicker="02"
         title="What the price did, and what the currency did."
-        text={`Each line is the percent change from the first print between ${fmtDate(report.chartFrom)} and ${fmtDate(report.chartTo)}. It is that whole window, not the bounce off last week’s low.`}
+        text={`The price is the local print between ${fmtDate(report.chartFrom)} and ${fmtDate(report.chartTo)}. The dashed line is the purchase price. The FX line is the XE rate, and its dashed line is the initial spot.`}
       />
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
@@ -258,20 +220,24 @@ export function Movement({
         <div className="min-w-0 border border-line bg-card">
           <div className="border-b border-line px-4 py-3">
             <h3 className="font-serif text-lg">Price movement</h3>
-            <p className="text-xs text-muted">Change in the local price since the first print in the window. Concord is carried at cost, so it is omitted.</p>
+            <p className="text-xs text-muted">Local price. The dashed line is the purchase price. Concord is carried at cost, so it has no price.</p>
           </div>
-          <SeriesChart data={priceData} lines={priceLines} format="pct" height={300} />
+          {selected ? (
+            <MoveLevelChart data={priceLevel} name="Price" reference={purchasePrice} referenceLabel="Purchase" digits={2} height={300} />
+          ) : (
+            <p className="px-4 py-8 text-sm text-muted">Select one position to see its price against the purchase price.</p>
+          )}
         </div>
         <div className="min-w-0 border border-line bg-card">
           <div className="border-b border-line px-4 py-3">
             <h3 className="font-serif text-lg">FX movement</h3>
-            <p className="text-xs text-muted">
-              {usdHolding
-                ? "This holding is in US dollars, so the rate does not move. The line is the price movement."
-                : "Change in the XE rate since the first print in the window."}
-            </p>
+            <p className="text-xs text-muted">XE rate for the position’s currency. The dashed line is the initial spot rate.</p>
           </div>
-          <SeriesChart data={fxChartData} lines={fxChartLines} format="pct" height={300} />
+          {selected ? (
+            <MoveLevelChart data={fxLevelSeries} name="FX" reference={initialSpot} referenceLabel="Initial spot" digits={selected.ccy === "USD" || (initialSpot ?? 1) >= 0.5 ? 4 : 5} height={300} />
+          ) : (
+            <p className="px-4 py-8 text-sm text-muted">Select one position to see its FX rate against the initial spot.</p>
+          )}
         </div>
       </div>
 
@@ -642,7 +608,7 @@ export function Loans({ report }: { report: Report }) {
         <table className="w-full min-w-[860px] border-collapse text-sm">
           <thead className="bg-sand text-left text-xs tracking-wide text-muted uppercase">
             <tr>
-              {["Draw", "Ccy", "Type", "Principal", "Unpaid", "Rate", book === "citi" ? "Citi FX" : "XE", "Owed USD", "Interest USD"].map((h, i) => (
+              {["Draw", "Ccy", "Type", "Principal", "Unpaid", "Rate", book === "citi" ? "Citi FX" : "XE", "Principal (USD)", "Unpaid interest (USD)", "Total owed USD"].map((h, i) => (
                 <th key={h} className={`px-3 py-2 font-medium ${i > 2 ? "text-right" : ""}`}>{h}</th>
               ))}
             </tr>
@@ -663,8 +629,9 @@ export function Loans({ report }: { report: Report }) {
                   {fmtFx(d.fx)}
                   {d.fxFallback ? <div className="text-xs text-oxblood">XE</div> : null}
                 </td>
+                <td className="num px-3 py-2 text-right">{fmtUsd(d.principalUsd)}</td>
+                <td className="num px-3 py-2 text-right">{fmtUsd(d.unpaidUsd)}</td>
                 <td className="num px-3 py-2 text-right">{fmtUsd(d.owedUsd)}</td>
-                <td className="num px-3 py-2 text-right">{fmtUsd(d.interestUsd)}</td>
               </tr>
             ))}
           </tbody>

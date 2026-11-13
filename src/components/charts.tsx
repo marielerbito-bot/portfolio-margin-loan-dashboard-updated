@@ -155,6 +155,50 @@ export function LevelChart({
   );
 }
 
+export function MoveLevelChart({
+  data,
+  name,
+  reference,
+  referenceLabel,
+  digits = 2,
+  height = 300,
+}: {
+  data: { date: string; value: number | null }[];
+  name: string;
+  reference?: number | null;
+  referenceLabel: string;
+  digits?: number;
+  height?: number;
+}) {
+  const mounted = useMounted();
+  const rows = data.filter((d) => d.value != null);
+  if (!rows.length) return <p className="px-4 py-8 text-sm text-muted">No prints in this chart window.</p>;
+  if (!mounted) return <div style={{ height }} />;
+  const nums = rows.map((d) => d.value as number);
+  if (reference != null && Number.isFinite(reference)) nums.push(reference);
+  const lo = Math.min(...nums);
+  const hi = Math.max(...nums);
+  const pad = (hi - lo) * 0.12 || Math.abs(hi) * 0.04 || 1;
+  const fmt = (v: number) => v.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  return (
+    <div style={{ height }} className="w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={rows} margin={{ top: 16, right: 12, left: 0, bottom: 0 }}>
+          <CartesianGrid stroke={GRID} vertical={false} />
+          <XAxis dataKey="date" tickFormatter={shortDate} tick={{ fill: AXIS, fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={28} />
+          <YAxis domain={[lo - pad, hi + pad]} tickFormatter={fmt} tick={{ fill: AXIS, fontSize: 11 }} tickLine={false} axisLine={false} width={digits > 2 ? 64 : 52} />
+          <Tooltip contentStyle={tipStyle()} labelFormatter={(l) => fmtDate(String(l))} formatter={(v, label) => [fmt(Number(v)), label]} />
+          <Legend wrapperStyle={{ fontSize: 12 }} />
+          <Line type="monotone" dataKey="value" name={name} stroke="var(--color-s1)" strokeWidth={1.75} dot={false} />
+          {reference != null && Number.isFinite(reference) ? (
+            <ReferenceLine y={reference} stroke="var(--color-oxblood)" strokeDasharray="4 3" label={{ value: referenceLabel, fill: "var(--color-oxblood)", fontSize: 11 }} />
+          ) : null}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 export function PriceChart({
   data,
   strike,

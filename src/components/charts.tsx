@@ -179,14 +179,19 @@ export function MoveLevelChart({
   const lo = Math.min(...nums);
   const hi = Math.max(...nums);
   const pad = (hi - lo) * 0.12 || Math.abs(hi) * 0.04 || 1;
-  const fmt = (v: number) => v.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  const fmt = (v: number) =>
+    v.toLocaleString("en-US", {
+      minimumFractionDigits: Math.min(2, digits),
+      maximumFractionDigits: digits,
+      useGrouping: false,
+    });
   return (
     <div style={{ height }} className="w-full">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={rows} margin={{ top: 16, right: 12, left: 0, bottom: 0 }}>
           <CartesianGrid stroke={GRID} vertical={false} />
           <XAxis dataKey="date" tickFormatter={shortDate} tick={{ fill: AXIS, fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={28} />
-          <YAxis domain={[lo - pad, hi + pad]} tickFormatter={fmt} tick={{ fill: AXIS, fontSize: 11 }} tickLine={false} axisLine={false} width={digits > 2 ? 64 : 52} />
+          <YAxis domain={[lo - pad, hi + pad]} tickFormatter={fmt} tick={{ fill: AXIS, fontSize: 11 }} tickLine={false} axisLine={false} width={digits > 4 ? 78 : digits > 2 ? 64 : 52} />
           <Tooltip contentStyle={tipStyle()} labelFormatter={(l) => fmtDate(String(l))} formatter={(v, label) => [fmt(Number(v)), label]} />
           <Legend wrapperStyle={{ fontSize: 12 }} />
           <Line type="monotone" dataKey="value" name={name} stroke="var(--color-s1)" strokeWidth={1.75} dot={false} />

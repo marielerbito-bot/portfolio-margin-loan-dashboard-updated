@@ -36,8 +36,14 @@ export function fmtPct(value: number | null | undefined, digits = 1) {
 
 export function fmtFx(value: number | null | undefined) {
   if (value == null || !Number.isFinite(value)) return "—";
-  const digits = value < 0.5 ? 6 : 4;
-  return value.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  const neg = value < 0;
+  const abs = Math.abs(value);
+  const raw = abs.toString();
+  if (raw.includes("e") || raw.includes("E")) {
+    return value.toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 10, useGrouping: false });
+  }
+  const [whole, frac = ""] = raw.split(".");
+  return `${neg ? "-" : ""}${whole}.${frac.padEnd(4, "0")}`;
 }
 
 export function fmtNum(value: number | null | undefined, digits = 2) {

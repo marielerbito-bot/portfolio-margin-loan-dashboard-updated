@@ -244,8 +244,7 @@ function SectionTitle({ kicker, title, text }: { kicker: string; title: string; 
 const DESK = ["AUD", "SGD", "CHF", "EUR", "HKD"] as const;
 
 function deskFx(value: number | null | undefined) {
-  if (value == null || !Number.isFinite(value)) return "—";
-  return value.toFixed(value < 0.2 ? 5 : 4);
+  return fmtFx(value);
 }
 
 function fxRead(vol: number | null) {

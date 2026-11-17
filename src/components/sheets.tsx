@@ -234,7 +234,7 @@ export function Movement({
             <p className="text-xs text-muted">XE rate for the position’s currency. The dashed line is the initial spot rate.</p>
           </div>
           {selected ? (
-            <MoveLevelChart data={fxLevelSeries} name="FX" reference={initialSpot} referenceLabel="Initial spot" digits={selected.ccy === "USD" || (initialSpot ?? 1) >= 0.5 ? 4 : 5} height={300} />
+            <MoveLevelChart data={fxLevelSeries} name="FX" reference={initialSpot} referenceLabel="Initial spot" digits={8} height={300} />
           ) : (
             <p className="px-4 py-8 text-sm text-muted">Select one position to see its FX rate against the initial spot.</p>
           )}

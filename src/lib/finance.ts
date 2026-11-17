@@ -24,9 +24,9 @@ export const MONTH_ENDS = [
 ] as const;
 
 export const REPORT_MIN = "2025-06-03";
-export const REPORT_MAX = "2026-11-10";
+export const REPORT_MAX = "2026-11-15";
 export const CHART_MIN = "2026-04-01";
-export const CHART_MAX = "2026-11-10";
+export const CHART_MAX = "2026-11-15";
 
 type Pair = [string, number];
 
@@ -172,7 +172,7 @@ export const POSITIONS: PositionDef[] = [
     units: null,
     priceKey: null,
     mark: 472280.5,
-    markDate: "2026-11-10",
+    markDate: "2026-10-31",
     couponPa: 0.15,
   },
   {
@@ -188,7 +188,7 @@ export const POSITIONS: PositionDef[] = [
     units: null,
     priceKey: null,
     mark: 290620.8,
-    markDate: "2026-11-10",
+    markDate: "2026-10-31",
     couponPa: 0.12,
   },
 ];
@@ -682,7 +682,7 @@ function localValue(p: PositionDef, date: string): { local: number; price: numbe
   }
   if (p.mark != null && p.markDate) {
     if (date >= p.markDate) {
-      return { local: p.mark, price: p.mark, asOf: p.markDate, note: "Single issuer mark. Not a daily series." };
+      return { local: p.mark, price: p.mark, asOf: p.markDate, note: "Issuer mark as of 31 Oct 2026. The same mark is used on that date and on every later reporting date." };
     }
     return { local: p.cost, price: null, asOf: null, note: `Issuer mark is dated ${p.markDate}. Shown at cost before that.` };
   }

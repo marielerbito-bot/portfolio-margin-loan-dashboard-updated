@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Analysis } from "@/components/analysis";
 import { LevelChart } from "@/components/charts";
 import { fmtDate, fmtFx, fmtNum, fmtPct, fmtQty, fmtUsd, Signed, tone } from "@/components/format";
 import { Income, LoanFxExposure, Loans, Movement, ShareholdersRoi } from "@/components/sheets";
@@ -352,54 +353,5 @@ function LoanToValue({ report }: { report: Report }) {
         ))}
       </div>
     </div>
-  );
-}
-
-function Analysis({ report }: { report: Report }) {
-  const currentLabel =
-    report.source === "citi" && report.mode === "monthend"
-      ? report.sensitivity[2]?.label
-      : report.source === "xe" && report.mode === "monthend"
-        ? report.sensitivity[1]?.label
-        : report.source === "xe"
-          ? report.sensitivity[0]?.label
-          : null;
-  return (
-    <section id="analysis" className="flex flex-col gap-6 pb-16">
-      <SectionTitle
-        kicker="05"
-        title="Analysis"
-        text="Written from the figures on this screen. The summary stays on XE. The Citi column below is the loan-sheet rate, shown for comparison only."
-      />
-      <div className="flex flex-col gap-4 border border-line bg-card px-5 py-5">
-        {report.analysis.map((p) => (
-          <p key={p} className="text-sm leading-relaxed">{p}</p>
-        ))}
-      </div>
-      <h3 className="font-serif text-xl">Rate-book sensitivity</h3>
-      <p className="text-sm text-muted">Same reporting date and same prices. Only the translation rate changes. Citi month-end falls back to XE wherever the loan book has no print.</p>
-      <div className="overflow-x-auto border border-line bg-card">
-        <table className="w-full min-w-[640px] border-collapse text-sm">
-          <thead className="bg-sand text-left text-xs tracking-wide text-muted uppercase">
-            <tr>
-              {["Book", "Fair value", "Loans owed", "Net assets", "Unrealized"].map((h, i) => (
-                <th key={h} className={`px-3 py-2 font-medium ${i > 0 ? "text-right" : ""}`}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {report.sensitivity.map((s) => (
-              <tr key={s.label} className={`border-t border-line ${currentLabel === s.label ? "bg-forest-soft" : ""}`}>
-                <td className="px-3 py-2 font-medium">{s.label}</td>
-                <td className="num px-3 py-2 text-right">{fmtUsd(s.fmv)}</td>
-                <td className="num px-3 py-2 text-right">{fmtUsd(s.loans)}</td>
-                <td className="num px-3 py-2 text-right">{fmtUsd(s.net)}</td>
-                <td className="num px-3 py-2 text-right"><Signed value={s.gl} /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
   );
 }

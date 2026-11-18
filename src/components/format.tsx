@@ -77,3 +77,9 @@ export function Signed({
   const text = kind === "pct" ? fmtPct(value, digits) : fmtUsd(value);
   return <span className={`num ${tone(value)}`}>{text}</span>;
 }
+
+/** Coverage multiples, e.g. 2.77×. */
+export function fmtX(value: number | null | undefined, digits = 2) {
+  if (value == null || !Number.isFinite(value)) return "—";
+  return `${value.toFixed(digits)}×`;
+}

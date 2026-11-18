@@ -667,7 +667,7 @@ export type Report = {
   loanCiti: DrawRow[];
   carry: CarryRow[];
   fxChart: { date: string; AUD: number | null; SGD: number | null; CHF: number | null; HKD: number | null; EUR: number | null; citiSGD: number | null; citiCHF: number | null; citiHKD: number | null }[];
-  analysis: string[];
+  analysis: { kicker: string; headline: string; detail: string }[];
   exited: typeof EXITED;
 };
 
@@ -1862,94 +1862,124 @@ function writeAnalysis(ctx: {
   windowMove: Report["windowMove"];
   opts: Options;
   income: IncomeLine[];
-}): string[] {
-  const { positions, totals, loanTotals, ltv, coverage, underlyings, rates, sensitivity, windowMove, opts } = ctx;
-  const lines: string[] = [];
+}): Report["analysis"] {
+  const { positions, totals, loanTotals, ltv, coverage, underlyings, sensitivity, windowMove, opts } = ctx;
+  const points: Report["analysis"] = [];
   const net = totals.usd - loanTotals.owedUsd;
-  const rateWords =
-    opts.mode === "monthend"
-      ? `the ${opts.source === "citi" ? "Citi" : "XE"} month-end rate of ${opts.monthEnd}`
-      : opts.source === "citi"
-        ? "the latest Citi print on or before the reporting date"
-        : "the XE close on the reporting date";
-  lines.push(
-    `As of ${opts.reportingDate}, assets are ${money(totals.usd)} and loan balances owed are ${money(loanTotals.owedUsd)}, so net assets are ${money(net)}. Translation uses ${rateWords}. Unrealized result since entry is ${money(totals.totalGl)}: price ${money(totals.priceGl)} and FX ${money(totals.fxGl)}.`,
-  );
+  const asOf = prettyDate(opts.reportingDate);
 
-  const top = [...positions].sort((a, b) => (b.usd || 0) - (a.usd || 0))[0];
-  if (top?.usd) {
-    lines.push(
-      `${top.short} is ${pct(top.usd / totals.usd)} of fair value (${money(top.usd)}). Local value is ${pct(top.priceMove || 0)} versus cost and the currency is ${pct(top.fxMove || 0)} versus the entry rate, so the USD result is ${money(top.totalGl || 0)}.`,
-    );
-  }
+  points.push({
+    kicker: "Net assets",
+    headline: money(net),
+    detail: `As of ${asOf}, assets are ${money(totals.usd)} and loans owed are ${money(loanTotals.owedUsd)}. Unrealized since entry is ${money(totals.totalGl)}, of which price is ${money(totals.priceGl)} and FX is ${money(totals.fxGl)}.`,
+  });
 
-  const xe = sensitivity[0];
-  const xeM = sensitivity[1];
-  const citi = sensitivity[2];
-  lines.push(
-    `Switching the balance sheet from the XE reporting-date rate to the XE month-end moves fair value by ${money(xeM.fmv - xe.fmv)} and loans by ${money(xeM.loans - xe.loans)}. The Citi month-end, which is the rate book inside the loan expense sheet, puts loans at ${money(citi.loans)} against ${money(xeM.loans)} on the XE month-end. AUD and EUR have no Citi print, so that column still uses XE for those currencies.`,
-  );
-
-  const basis = rates.filter((r) => r.xe && r.citi && r.ccy !== "USD");
-  if (basis.length) {
-    const bits = basis.map((r) => {
-      const bps = ((r.citi!.rate - r.xe!.rate) / r.xe!.rate) * 10000;
-      const sign = bps >= 0 ? "+" : "";
-      return `${r.ccy} ${sign}${bps.toFixed(0)} bp (Citi ${r.citi!.asOf}, XE ${r.xe!.asOf})`;
+  const byResult = positions.filter((p) => p.totalGl != null).sort((a, b) => (b.totalGl || 0) - (a.totalGl || 0));
+  const lead = byResult[0];
+  const drag = byResult[byResult.length - 1];
+  if (lead && drag && lead !== drag) {
+    points.push({
+      kicker: "What moved the result",
+      headline: `${lead.short} ${money(lead.totalGl || 0)}`,
+      detail: `${drag.short} is the offset at ${money(drag.totalGl || 0)}. ${lead.short} is ${pct(lead.priceMove || 0)} in local value and ${pct(lead.fxMove || 0)} on the currency. ${drag.short} is ${pct(drag.priceMove || 0)} in local value and ${pct(drag.fxMove || 0)} on the currency.`,
     });
-    lines.push(
-      `Citi versus XE, each the latest print on or before the valuation date: ${bits.join("; ")}. They are not always the same day — Citi is a month-end (and draw-date) book, XE is a daily close. A positive gap means Citi translates that currency to more dollars.`,
-    );
   }
 
-  const hot = ltv.filter((g) => g.ltv != null && g.ltv > 0.85);
-  if (hot.length) {
-    lines.push(
-      hot
-        .map((g) => `${g.name} secures ${g.draws}. Loan-to-value is ${pct(g.ltv || 0)} (${g.band.toLowerCase()}): ${g.action.toLowerCase()}. Collateral ${money(g.fmvUsd)} against loans ${money(g.loanUsd)}.`)
-        .join(" "),
-    );
-  } else {
-    lines.push("No collateral pool is above 85% loan-to-value on this rate and date.");
+  const ranked = [...positions].filter((p) => p.usd).sort((a, b) => (b.usd || 0) - (a.usd || 0));
+  const top = ranked[0];
+  const second = ranked[1];
+  if (top?.usd && totals.usd) {
+    points.push({
+      kicker: "Concentration",
+      headline: `${top.short} ${pct(top.usd / totals.usd)}`,
+      detail: `${money(top.usd)} of fair value sits in ${top.short}.${second?.usd ? ` ${second.short} is next at ${pct(second.usd / totals.usd)}.` : ""} The rest of the book is spread across ${Math.max(ranked.length - 1, 0)} other open positions.`,
+    });
   }
 
-  const thin = underlyings.filter((u) => u.cushion != null && u.cushion < 0.1);
-  if (thin.length) {
-    lines.push(
-      `Coupon-note cushions under 10% of strike: ${thin.map((u) => `${u.name} ${pct(u.cushion || 0)} (price ${u.price?.toFixed(2)}, strike ${u.strike.toFixed(2)})`).join("; ")}. Trend on the movement table follows the price change and the FX rate, not the cushion.`,
-    );
+  const fxByCcy = new Map<string, number>();
+  for (const p of positions) {
+    if (!p.fxGl || p.ccy === "USD") continue;
+    fxByCcy.set(p.ccy, (fxByCcy.get(p.ccy) || 0) + p.fxGl);
+  }
+  const fxRanked = [...fxByCcy.entries()].sort((a, b) => a[1] - b[1]);
+  if (fxRanked.length) {
+    const worstFx = fxRanked[0];
+    const bestFx = fxRanked[fxRanked.length - 1];
+    points.push({
+      kicker: "Currency",
+      headline: `${worstFx[0]} ${money(worstFx[1])}`,
+      detail: `That is the FX result on open assets in ${worstFx[0]}, measured from each entry rate to the reporting-date rate.${bestFx[0] !== worstFx[0] ? ` ${bestFx[0]} is the other side at ${money(bestFx[1])}.` : ""} USD holdings have no FX result.`,
+    });
   }
 
-  const avgo = underlyings.find((u) => u.id === "AVGO");
-  if (avgo && avgo.weekly != null && Math.abs(avgo.weekly) >= 0.08 && avgo.price != null) {
-    lines.push(
-      `Broadcom’s latest week is ${pct(avgo.weekly)}, the close of ${avgo.price.toFixed(2)} against the prior Friday. A print of that size is the rebound after a sharp drop, not the holding-period result. Versus the note purchase price of ${avgo.purchase.toFixed(2)} the share is ${pct(avgo.fromPurchase || 0)}.`,
-    );
+  points.push({
+    kicker: "Loans",
+    headline: money(loanTotals.allIn),
+    detail: `All-in on open draws is FX on the original principal of ${money(loanTotals.fxGain)} less capitalised PIK of ${money(loanTotals.pikCost)}. A negative figure is a cost. Realised FX on repayments stays at the historical payment rate.`,
+  });
+
+  const tight = [...ltv].filter((g) => g.ltv != null).sort((a, b) => (b.ltv || 0) - (a.ltv || 0))[0];
+  if (tight?.ltv != null) {
+    points.push({
+      kicker: "Loan to value",
+      headline: `${tight.name} ${pct(tight.ltv)}`,
+      detail: `${tight.band}. Collateral ${money(tight.fmvUsd)} against ${tight.draws} of ${money(tight.loanUsd)}. ${tight.action}`,
+    });
+  }
+
+  const notes = underlyings.filter((u) => u.cushion != null).sort((a, b) => (a.cushion || 0) - (b.cushion || 0));
+  const nearest = notes[0];
+  if (nearest?.cushion != null && nearest.price != null) {
+    const below = positions.filter((p) => (p.id === "fcn-nvda" || p.id === "fcn-amzn") && (p.totalGl || 0) < 0);
+    points.push({
+      kicker: "Coupon notes",
+      headline: `${nearest.name} ${pct(nearest.cushion)} over strike`,
+      detail: `Price ${nearest.price.toFixed(2)} against strike ${nearest.strike.toFixed(2)}.${below.length ? ` Mark-to-market on the notes is ${below.map((p) => `${p.short} ${money(p.totalGl || 0)}`).join(", ")}.` : " Neither note is below cost on this date."} The cushion is distance to the strike, not the coupon already received.`,
+    });
   }
 
   const whole = coverage[0];
-  if (whole.ratio != null) {
+  if (whole?.ratio != null) {
     const weak = coverage.filter((c) => c.ratio != null && c.label !== "Whole book").sort((a, b) => (a.ratio || 0) - (b.ratio || 0))[0];
-    lines.push(
-      `Cash income translated on the ${opts.source === "citi" ? "Citi" : "XE"} rate of each income date covers interest ${whole.ratio.toFixed(2)}× (${money(whole.income)} against ${money(whole.interest)}). Tightest mapped pair: ${weak ? `${weak.label} at ${weak.ratio?.toFixed(2)}×` : "n/a"}. Lines dated before that rate book starts keep the workbook's original dollars.`,
-    );
+    points.push({
+      kicker: "Income cover",
+      headline: `${whole.ratio.toFixed(2)}× interest`,
+      detail: `Cash income of ${money(whole.income)} against interest of ${money(whole.interest)}.${weak ? ` Tightest mapped pair is ${weak.label} at ${weak.ratio?.toFixed(2)}×.` : ""}`,
+    });
   }
 
-  if (windowMove.length) {
-    const worst = [...windowMove].sort((a, b) => a.endUsd - a.startUsd - (b.endUsd - b.startUsd))[0];
-    const best = [...windowMove].sort((a, b) => b.endUsd - b.startUsd - (a.endUsd - a.startUsd))[0];
+  const xe = sensitivity[0];
+  const citi = sensitivity[2];
+  if (xe && citi && Math.abs(citi.loans - xe.loans) >= 1000) {
+    points.push({
+      kicker: "Rate book",
+      headline: money(citi.loans - xe.loans),
+      detail: `Moving open loans from the XE rate on ${asOf} to the Citi month-end changes the balance by this amount. Citi is the loan-sheet rate. AUD and EUR stay on XE, because the loan book has no Citi print for them.`,
+    });
+  }
+
+  if (windowMove.length > 1) {
     const delta = (m: { endUsd: number; startUsd: number }) => m.endUsd - m.startUsd;
-    lines.push(
-      `Over the chart window ${opts.chartFrom} to ${opts.chartTo}, ${best.name} moves ${money(delta(best))} and ${worst.name} moves ${money(delta(worst))}. The split under each line is price times the starting FX, then the FX change on the ending local value. A month-end rate holds FX flat, so that window is price only.`,
-    );
+    const ordered = [...windowMove].sort((a, b) => delta(b) - delta(a));
+    const best = ordered[0];
+    const worst = ordered[ordered.length - 1];
+    if (best && worst && best.name !== worst.name) {
+      points.push({
+        kicker: "This window",
+        headline: `${best.name} ${money(delta(best))}`,
+        detail: `From ${prettyDate(opts.chartFrom)} to ${prettyDate(opts.chartTo)}. ${worst.name} is the other end at ${money(delta(worst))}. The split is the price change at the starting FX, then the FX change on the ending local value.`,
+      });
+    }
   }
 
-  const pik = loanTotals.pikCost;
-  lines.push(
-    `On open loans, FX on the original principal is ${money(loanTotals.fxGain)} and capitalised PIK interest is ${money(pik)}. All-in on those two, before cash interest, is ${money(loanTotals.allIn)}. Realised FX on repayments is historical and is not restated when the rate book changes.`,
-  );
+  return points;
+}
 
-  return lines;
+function prettyDate(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  if (!y || !m || !d) return iso;
+  return `${d} ${months[m - 1]} ${y}`;
 }
 
 export const POSITION_COLOR: Record<string, string> = {

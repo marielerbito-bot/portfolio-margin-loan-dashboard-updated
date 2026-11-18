@@ -117,7 +117,7 @@ export function Dashboard() {
                 <table className="w-full min-w-[880px] border-collapse text-sm">
                   <thead className="bg-sand text-left text-xs tracking-wide text-muted uppercase">
                     <tr>
-                      {["Position", "Ccy", "Cost", "Price", "Local value", "FX", "Fair value", "Price move", "FX move", "Price G/L", "FX G/L", "Total"].map((h, i) => (
+                      {["Position", "Ccy", "Cost", "Shares", "Price", "Local value", "FX", "Fair value", "Price move", "FX move", "Price G/L", "FX G/L", "Total"].map((h, i) => (
                         <th key={h} className={`px-3 py-2 font-medium ${i > 1 ? "text-right" : ""}`}>{h}</th>
                       ))}
                     </tr>
@@ -131,7 +131,8 @@ export function Dashboard() {
                         </td>
                         <td className="px-3 py-2">{p.ccy}</td>
                         <td className="num px-3 py-2 text-right">{fmtQty(p.cost)}</td>
-                        <td className="num px-3 py-2 text-right">{p.price == null ? "—" : fmtNum(p.price, 4)}</td>
+                        <td className="num px-3 py-2 text-right">{p.units == null ? "—" : p.units.toLocaleString("en-US", { maximumFractionDigits: 3 })}</td>
+                        <td className="num px-3 py-2 text-right">{p.id === "fcn-nvda" || p.id === "fcn-amzn" || p.price == null ? "—" : fmtNum(p.price, 4)}</td>
                         <td className="num px-3 py-2 text-right">{fmtQty(p.local)}</td>
                         <td className="num px-3 py-2 text-right">{fmtFx(p.fx)}</td>
                         <td className="num px-3 py-2 text-right">{fmtUsd(p.usd)}</td>
@@ -143,7 +144,7 @@ export function Dashboard() {
                       </tr>
                     ))}
                     <tr className="border-t border-ink bg-sand font-medium">
-                      <td className="px-3 py-2" colSpan={6}>Total</td>
+                      <td className="px-3 py-2" colSpan={7}>Total</td>
                       <td className="num px-3 py-2 text-right">{fmtUsd(report.totals.usd)}</td>
                       <td />
                       <td />

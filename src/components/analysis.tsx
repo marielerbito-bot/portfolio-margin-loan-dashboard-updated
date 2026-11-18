@@ -312,23 +312,23 @@ export function Analysis({ report }: { report: Report }) {
         </div>
       </Block>
 
-      <Block title="Income against interest" text="Net carry income divided by loan interest, by investment. Above 2.0× is strong, 1.5× to 2.0× adequate, 1.0× to 1.5× tight, and below 1.0× means income did not cover the interest.">
-        <Table head={["Investment", "Income (USD)", "Interest (USD)", "Net (USD)", "Cover"]} min={600}>
-          {report.coverage.map((c) => {
-            const r = c.ratio;
-            const word = r == null ? "—" : r > 2 ? "Strong" : r > 1.5 ? "Adequate" : r > 1 ? "Tight" : "Weak";
+      <Block title="Income against interest" text="Net carry divided by interest, the same pairing as the income sheet. Older draws stay in the line they funded: PIMCO SGD includes Draw 3, PIMCO USD includes Draw 8, and the USD notes include Draw 1. Above 2.0× is strong, 1.5× to 2.0× adequate, 1.0× to 1.5× tight, and below 1.0× means income did not cover the interest.">
+        <Table head={["Investment", "Status", "Net carry", "Interest", "Net", "Cover"]} min={720}>
+          {report.carry.map((c) => {
+            const word = c.indicator || "—";
             return (
-              <tr key={c.label} className="border-t border-line">
+              <tr key={c.id} className="border-t border-line">
                 <Td left cls="font-medium">
-                  {c.label}
+                  {c.investment} · {c.ccy}
                 </Td>
-                <Td>{fmtUsd(c.income)}</Td>
-                <Td>{fmtUsd(c.interest)}</Td>
+                <Td left>{c.status}</Td>
+                <Td>{fmtUsd(c.netCarryUsd)}</Td>
+                <Td>{c.interestUsd == null ? "—" : fmtUsd(c.interestUsd)}</Td>
                 <Td>
-                  <Signed value={c.income - c.interest} />
+                  <Signed value={c.netReturnUsd} />
                 </Td>
                 <td className="num px-3 py-2 text-right">
-                  {r == null ? "—" : fmtX(r)} <span className={`ml-1 text-xs ${word === "Weak" ? "text-oxblood" : word === "Tight" ? "text-s2" : "text-forest"}`}>{word}</span>
+                  {c.ratio == null ? "—" : fmtX(c.ratio)} <span className={`ml-1 text-xs ${word === "Weak" ? "text-oxblood" : word === "Tight" ? "text-s2" : "text-forest"}`}>{word}</span>
                 </td>
               </tr>
             );

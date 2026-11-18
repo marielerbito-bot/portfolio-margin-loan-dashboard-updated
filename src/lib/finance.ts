@@ -162,7 +162,7 @@ export const POSITIONS: PositionDef[] = [
   {
     id: "fcn-nvda",
     name: "NVDA / AVGO fixed coupon note",
-    short: "FCN 15%",
+    short: "NVDA + AVGO",
     ccy: "USD",
     product: "Fixed coupon note · matures 14 Dec 2026",
     acquired: "2026-05-29",
@@ -178,7 +178,7 @@ export const POSITIONS: PositionDef[] = [
   {
     id: "fcn-amzn",
     name: "AMZN / GOOG fixed coupon note",
-    short: "FCN 12%",
+    short: "AMZN + GOOG",
     ccy: "USD",
     product: "Fixed coupon note · matures 5 Feb 2027",
     acquired: "2026-09-23",
@@ -1782,7 +1782,7 @@ export function buildReport(input: Options): Report {
   const moves = buildMoves(opts, valFx);
   const carry = buildCarry(opts.reportingDate);
 
-  const analysis = writeAnalysis({ positions, totals, loanTotals, ltv, coverage, underlyings, rates, sensitivity, windowMove, opts, income });
+  const analysis = writeAnalysis({ positions, totals, loanTotals, ltv, coverage, underlyings, rates, sensitivity, windowMove, opts, income, carry });
 
   const exited = EXITED.filter((e) => e.disposed <= opts.reportingDate && e.acquired <= opts.reportingDate);
 
@@ -1862,8 +1862,9 @@ function writeAnalysis(ctx: {
   windowMove: Report["windowMove"];
   opts: Options;
   income: IncomeLine[];
+  carry: CarryRow[];
 }): Report["analysis"] {
-  const { positions, totals, loanTotals, ltv, coverage, underlyings, sensitivity, windowMove, opts } = ctx;
+  const { positions, totals, loanTotals, ltv, underlyings, sensitivity, windowMove, opts, carry } = ctx;
   const points: Report["analysis"] = [];
   const net = totals.usd - loanTotals.owedUsd;
   const asOf = prettyDate(opts.reportingDate);
@@ -1938,13 +1939,13 @@ function writeAnalysis(ctx: {
     });
   }
 
-  const whole = coverage[0];
-  if (whole?.ratio != null) {
-    const weak = coverage.filter((c) => c.ratio != null && c.label !== "Whole book").sort((a, b) => (a.ratio || 0) - (b.ratio || 0))[0];
+  const sgd = carry.find((c) => c.id === "pimco-sgd");
+  if (sgd?.ratio != null) {
+    const weak = [...carry].filter((c) => c.ratio != null).sort((a, b) => (a.ratio || 0) - (b.ratio || 0))[0];
     points.push({
       kicker: "Income cover",
-      headline: `${whole.ratio.toFixed(2)}× interest`,
-      detail: `Cash income of ${money(whole.income)} against interest of ${money(whole.interest)}.${weak ? ` Tightest mapped pair is ${weak.label} at ${weak.ratio?.toFixed(2)}×.` : ""}`,
+      headline: `PIMCO SGD ${sgd.ratio.toFixed(2)}×`,
+      detail: `Net carry of ${money(sgd.netCarryUsd)} against interest of ${money(sgd.interestUsd || 0)}. That interest includes Draw 3, the matured SGD loan, as well as Draws 4 and 11. ${weak ? `Tightest line on the same basis is ${weak.investment} ${weak.ccy} at ${weak.ratio?.toFixed(2)}×.` : ""}`,
     });
   }
 

@@ -146,45 +146,70 @@ export function Dashboard() {
               <Kpi label="Unrealized result" value={fmtUsd(report.totals.totalGl)} note="Price and FX since entry" toneValue={report.totals.totalGl} />
             </div>
             <FxDesk report={report} />
-              <h3 className="font-serif text-xl">Open positions</h3>
+              <div>
+                <p className="text-xs tracking-widest text-muted uppercase">Portfolio holdings</p>
+                <h3 className="mt-1 font-serif text-2xl tracking-tight">Open positions</h3>
+                <p className="mt-1 max-w-2xl text-sm text-muted">Market value at the reporting date. The last column is the unrealized gain or loss since entry, price and foreign exchange together.</p>
+              </div>
               <div className="overflow-x-auto border border-line bg-card">
-                <table className="w-full min-w-[880px] border-collapse text-sm">
-                  <thead className="bg-sand text-left text-xs tracking-wide text-muted uppercase">
+                <table className="w-full min-w-[1240px] border-collapse text-sm">
+                  <thead className="bg-sand text-left text-[11px] tracking-wide text-muted uppercase">
+                    <tr className="border-b border-line">
+                      <th colSpan={2} className="px-4 py-2.5 font-medium">Holding</th>
+                      <th colSpan={2} className="px-4 py-2.5 text-right font-medium">Cost basis</th>
+                      <th colSpan={4} className="px-4 py-2.5 text-right font-medium">Market value</th>
+                      <th colSpan={2} className="px-4 py-2.5 text-right font-medium">Movement</th>
+                      <th colSpan={3} className="px-4 py-2.5 text-right font-medium">Unrealized gain / (loss)</th>
+                    </tr>
                     <tr>
-                      {["Position", "Ccy", "Cost", "Shares", "Price", "Local value", "FX", "Fair value", "Price move", "FX move", "Price G/L", "FX G/L", "Total"].map((h, i) => (
-                        <th key={h} className={`px-3 py-2 font-medium ${i > 1 ? "text-right" : ""}`}>{h}</th>
+                      {[
+                        ["Position", "min-w-[11rem]"],
+                        ["Currency", "min-w-[5.5rem]"],
+                        ["Cost", "min-w-[7.5rem] text-right"],
+                        ["Quantity", "min-w-[7.5rem] text-right"],
+                        ["Price", "min-w-[6.5rem] text-right"],
+                        ["Local value", "min-w-[8rem] text-right"],
+                        ["FX rate", "min-w-[7rem] text-right"],
+                        ["Fair value", "min-w-[8.5rem] text-right"],
+                        ["Price", "min-w-[6.5rem] text-right"],
+                        ["FX", "min-w-[6.5rem] text-right"],
+                        ["Price", "min-w-[8rem] text-right"],
+                        ["FX", "min-w-[8rem] text-right"],
+                        ["Unrealized G/L", "min-w-[9.5rem] text-right"],
+                      ].map(([h, cls]) => (
+                        <th key={h + cls} className={`px-4 py-2.5 font-medium whitespace-nowrap ${cls}`}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {report.positions.map((p) => (
                       <tr key={p.id} className="border-t border-line">
-                        <td className="px-3 py-2">
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <div className="font-medium">{p.short}</div>
                           <div className="text-xs text-muted">{p.product}</div>
                         </td>
-                        <td className="px-3 py-2">{p.ccy}</td>
-                        <td className="num px-3 py-2 text-right">{fmtQty(p.cost)}</td>
-                        <td className="num px-3 py-2 text-right">{p.units == null ? "—" : p.units.toLocaleString("en-US", { maximumFractionDigits: 3 })}</td>
-                        <td className="num px-3 py-2 text-right">{p.id === "fcn-nvda" || p.id === "fcn-amzn" || p.price == null ? "—" : fmtNum(p.price, 4)}</td>
-                        <td className="num px-3 py-2 text-right">{fmtQty(p.local)}</td>
-                        <td className="num px-3 py-2 text-right">{fmtFx(p.fx)}</td>
-                        <td className="num px-3 py-2 text-right">{fmtUsd(p.usd)}</td>
-                        <td className={`num px-3 py-2 text-right ${tone(p.priceMove)}`}>{fmtPct(p.priceMove)}</td>
-                        <td className={`num px-3 py-2 text-right ${tone(p.fxMove)}`}>{fmtPct(p.fxMove)}</td>
-                        <td className="num px-3 py-2 text-right"><Signed value={p.priceGl} /></td>
-                        <td className="num px-3 py-2 text-right"><Signed value={p.fxGl} /></td>
-                        <td className="num px-3 py-2 text-right"><Signed value={p.totalGl} /></td>
+                        <td className="px-4 py-3 whitespace-nowrap">{p.ccy}</td>
+                        <td className="num px-4 py-3 text-right whitespace-nowrap">{fmtQty(p.cost)}</td>
+                        <td className="num px-4 py-3 text-right whitespace-nowrap">{p.units == null ? "—" : p.units.toLocaleString("en-US", { maximumFractionDigits: 3 })}</td>
+                        <td className="num px-4 py-3 text-right whitespace-nowrap">{p.id === "fcn-nvda" || p.id === "fcn-amzn" || p.price == null ? "—" : fmtNum(p.price, 4)}</td>
+                        <td className="num px-4 py-3 text-right whitespace-nowrap">{fmtQty(p.local)}</td>
+                        <td className="num px-4 py-3 text-right whitespace-nowrap">{fmtFx(p.fx)}</td>
+                        <td className="num px-4 py-3 text-right whitespace-nowrap">{fmtUsd(p.usd)}</td>
+                        <td className={`num px-4 py-3 text-right whitespace-nowrap ${tone(p.priceMove)}`}>{fmtPct(p.priceMove)}</td>
+                        <td className={`num px-4 py-3 text-right whitespace-nowrap ${tone(p.fxMove)}`}>{fmtPct(p.fxMove)}</td>
+                        <td className="num px-4 py-3 text-right whitespace-nowrap"><Signed value={p.priceGl} /></td>
+                        <td className="num px-4 py-3 text-right whitespace-nowrap"><Signed value={p.fxGl} /></td>
+                        <td className="num px-4 py-3 text-right whitespace-nowrap font-medium"><Signed value={p.totalGl} /></td>
                       </tr>
                     ))}
                     <tr className="border-t border-ink bg-sand font-medium">
-                      <td className="px-3 py-2" colSpan={7}>Total</td>
-                      <td className="num px-3 py-2 text-right">{fmtUsd(report.totals.usd)}</td>
+                      <td className="px-4 py-3" colSpan={7}>Portfolio total</td>
+                      <td className="num px-4 py-3 text-right whitespace-nowrap">{fmtUsd(report.totals.usd)}</td>
                       <td />
                       <td />
-                      <td className="num px-3 py-2 text-right"><Signed value={report.totals.priceGl} /></td>
-                      <td className="num px-3 py-2 text-right"><Signed value={report.totals.fxGl} /></td>
-                      <td className="num px-3 py-2 text-right"><Signed value={report.totals.totalGl} /></td>
+                      <td className="num px-4 py-3 text-right whitespace-nowrap"><Signed value={report.totals.priceGl} /></td>
+                      <td className="num px-4 py-3 text-right whitespace-nowrap"><Signed value={report.totals.fxGl} /></td>
+                      <td className="num px-4 py-3 text-right whitespace-nowrap"><Signed value={report.totals.totalGl} /></td>
                     </tr>
                   </tbody>
                 </table>
@@ -346,8 +371,8 @@ function FxDesk({ report }: { report: Report }) {
             {rows.map((r) => (
               <tr key={r.ccy} className={`border-t border-line ${r.ccy === selected?.ccy ? "bg-forest-soft" : ""}`}>
                 <td className="px-3 py-2 font-medium">{r.ccy}</td>
-                <td className="num px-3 py-2 text-right">{deskFx(r.prev)}</td>
-                <td className="num px-3 py-2 text-right">{deskFx(r.xe?.rate)}</td>
+                <td className="num px-3 py-2 text-right">{r.prev == null ? "—" : r.prev.toLocaleString("en-US", { minimumFractionDigits: 5, maximumFractionDigits: 5, useGrouping: false })}</td>
+                <td className="num px-3 py-2 text-right">{r.xe?.rate == null ? "—" : r.xe.rate.toLocaleString("en-US", { minimumFractionDigits: 5, maximumFractionDigits: 5, useGrouping: false })}</td>
                 <td className={`num px-3 py-2 text-right ${tone(r.daily)}`}>{fmtPct(r.daily, 2)}</td>
                 <td className={`num px-3 py-2 text-right ${tone(r.fromPeak)}`}>{fmtPct(r.fromPeak, 2)}</td>
                 <td className="num px-3 py-2 text-right">{fmtPct(r.vol, 1)}</td>

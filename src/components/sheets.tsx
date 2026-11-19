@@ -659,33 +659,44 @@ export function Loans({ report }: { report: Report }) {
 
       <h3 className="font-serif text-xl">Open draws</h3>
       <div className="overflow-x-auto border border-line bg-card">
-        <table className="w-full min-w-[860px] border-collapse text-sm">
+        <table className="w-full min-w-[1180px] border-collapse text-sm">
           <thead className="bg-sand text-left text-xs tracking-wide text-muted uppercase">
             <tr>
-              {["Draw", "Ccy", "Type", "Principal", "Unpaid", "Rate", book === "citi" ? "Citi FX" : "XE", "Principal (USD)", "Unpaid interest (USD)", "Total owed USD"].map((h, i) => (
-                <th key={h} className={`px-3 py-2 font-medium ${i > 2 ? "text-right" : ""}`}>{h}</th>
+              {[
+                ["Draw", "min-w-[8rem]"],
+                ["Currency", "min-w-[5.5rem]"],
+                ["Type", "min-w-[8rem]"],
+                ["Principal", "min-w-[8rem] text-right"],
+                ["Unpaid interest", "min-w-[8.5rem] text-right"],
+                ["Rate", "min-w-[5.5rem] text-right"],
+                [book === "citi" ? "Citi FX" : "XE", "min-w-[7.5rem] text-right"],
+                ["Principal (USD)", "min-w-[8.5rem] text-right"],
+                ["Unpaid interest (USD)", "min-w-[10rem] text-right"],
+                ["Total owed USD", "min-w-[8.5rem] text-right"],
+              ].map(([h, cls]) => (
+                <th key={h} className={`px-4 py-2.5 font-medium whitespace-nowrap ${cls}`}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {open.map((d) => (
               <tr key={d.name} className="border-t border-line">
-                <td className="px-3 py-2">
+                <td className="px-4 py-3 whitespace-nowrap">
                   <div className="font-medium">{d.name}</div>
                   <div className="text-xs text-muted">{d.ref}</div>
                 </td>
-                <td className="px-3 py-2">{d.ccy}</td>
-                <td className="px-3 py-2">{d.type} · {d.pay}</td>
-                <td className="num px-3 py-2 text-right">{fmtQty(d.principal)}</td>
-                <td className="num px-3 py-2 text-right">{fmtQty(d.unpaid)}</td>
-                <td className="num px-3 py-2 text-right">{d.rate == null ? "—" : fmtPct(d.rate, 2)}</td>
-                <td className="num px-3 py-2 text-right">
-                  {fmtFx(d.fx)}
+                <td className="px-4 py-3 whitespace-nowrap">{d.ccy}</td>
+                <td className="px-4 py-3 whitespace-nowrap">{d.type} · {d.pay}</td>
+                <td className="num px-4 py-3 text-right whitespace-nowrap">{fmtQty(d.principal)}</td>
+                <td className="num px-4 py-3 text-right whitespace-nowrap">{fmtQty(d.unpaid)}</td>
+                <td className="num px-4 py-3 text-right whitespace-nowrap">{d.rate == null ? "—" : fmtPct(d.rate, 2)}</td>
+                <td className="num px-4 py-3 text-right whitespace-nowrap">
+                  {d.fx == null ? "—" : d.fx.toLocaleString("en-US", { minimumFractionDigits: 5, maximumFractionDigits: 5, useGrouping: false })}
                   {d.fxFallback ? <div className="text-xs text-oxblood">XE</div> : null}
                 </td>
-                <td className="num px-3 py-2 text-right">{fmtUsd(d.principalUsd)}</td>
-                <td className="num px-3 py-2 text-right">{fmtUsd(d.unpaidUsd)}</td>
-                <td className="num px-3 py-2 text-right">{fmtUsd(d.owedUsd)}</td>
+                <td className="num px-4 py-3 text-right whitespace-nowrap">{fmtUsd(d.principalUsd)}</td>
+                <td className="num px-4 py-3 text-right whitespace-nowrap">{fmtUsd(d.unpaidUsd)}</td>
+                <td className="num px-4 py-3 text-right whitespace-nowrap">{fmtUsd(d.owedUsd)}</td>
               </tr>
             ))}
           </tbody>

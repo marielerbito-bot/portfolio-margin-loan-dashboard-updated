@@ -35,6 +35,8 @@ export function Dashboard() {
     [reportingDate, chartFrom, chartTo, mode, monthEnd],
   );
   const net = report.totals.usd - report.loanTotals.owedUsd;
+  const worst = report.ltv.filter((g) => g.ltv != null).sort((a, b) => (b.ltv as number) - (a.ltv as number)).map((g) => ({ name: g.name, ltv: g.ltv as number, band: g.band }))[0];
+  const atRisk = worst != null && worst.ltv > 0.85;
   const notes = priceNote(report.positions);
   const [tab, setTab] = useState<(typeof SECTIONS)[number][0]>("summary");
 
@@ -59,12 +61,17 @@ export function Dashboard() {
 
   return (
     <div className="min-h-screen bg-paper text-ink">
-      <header className="border-b border-line bg-paper">
-        <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-5 sm:px-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-xs tracking-widest text-muted uppercase">Portfolio</p>
-              <h1 className="font-serif text-3xl font-medium tracking-tight">Book</h1>
+      <header className="border-b border-line bg-card">
+        <div className="mx-auto max-w-6xl px-4 pt-6 sm:px-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex items-center gap-4">
+              <div aria-hidden="true" className="grid size-12 shrink-0 place-items-center bg-ink font-serif text-2xl text-paper">
+                B
+              </div>
+              <div>
+                <p className="text-xs tracking-widest text-muted uppercase">Portfolio and margin loans</p>
+                <h1 className="font-serif text-3xl font-medium tracking-tight">Book</h1>
+              </div>
             </div>
             <Controls
               reportingDate={reportingDate}
@@ -75,18 +82,45 @@ export function Dashboard() {
               onMonthEnd={setMonthEnd}
             />
           </div>
+          <p className="mt-4 text-sm text-muted">
+            As of <span className="font-medium text-ink">{fmtDate(report.reportingDate)}</span>
+            <span aria-hidden="true"> · </span>
+            {mode === "spot" ? "valued at spot XE rates" : `valued at ${fmtDate(monthEnd)} month-end XE rates`}
+            <span aria-hidden="true"> · </span>
+            prices and rates in US dollars
+          </p>
+          <div className="mt-4 grid grid-cols-2 gap-px border border-b-0 border-line bg-line md:grid-cols-5">
+            <Stat label="Net assets" value={fmtUsd(net)} big toneValue={net} />
+            <Stat label="Fair value" value={fmtUsd(report.totals.usd)} />
+            <Stat label="Loans owed" value={fmtUsd(report.loanTotals.owedUsd)} />
+            <Stat label="Unrealized result" value={fmtUsd(report.totals.totalGl)} toneValue={report.totals.totalGl} />
+            <div className="bg-paper px-4 py-3">
+              <p className="text-[11px] tracking-widest text-muted uppercase">Highest loan to value</p>
+              {worst ? (
+                <p className="num mt-1 flex items-baseline gap-2 font-serif text-xl">
+                  {fmtPct(worst.ltv)}
+                  <span className={`font-sans text-xs ${bandTone(worst.band)}`}>{worst.band}</span>
+                </p>
+              ) : (
+                <p className="mt-1 font-serif text-xl">—</p>
+              )}
+              <p className="truncate text-xs text-muted">{worst ? worst.name : "No open loans"}</p>
+            </div>
+          </div>
         </div>
       </header>
-      <nav className="sticky top-0 z-10 border-b border-line bg-paper/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl gap-5 overflow-x-auto px-4 py-3 text-sm sm:px-6">
+      <nav className="sticky top-0 z-10 border-b border-line bg-paper/95 backdrop-blur" data-print-hide>
+        <div className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4 text-sm sm:px-6">
           {SECTIONS.map(([id, label]) => (
             <button
               key={id}
               type="button"
               onClick={() => openTab(id)}
-              className={`shrink-0 border-b-2 bg-transparent pb-1 font-sans ${tab === id ? "border-ink text-ink" : "border-transparent text-muted"}`}
+              aria-current={tab === id ? "page" : undefined}
+              className={`relative shrink-0 border-b-2 bg-transparent px-3 py-3.5 font-sans ${tab === id ? "border-ink font-medium text-ink" : "border-transparent text-muted hover:text-ink"}`}
             >
               {label}
+              {id === "analysis" && atRisk ? <span className="ml-1.5 inline-block size-1.5 rounded-full bg-oxblood align-middle" title="A collateral pool is above 85% loan to value" /> : null}
             </button>
           ))}
         </div>
@@ -219,6 +253,15 @@ function Seg({ on, onClick, children }: { on: boolean; onClick: () => void; chil
     >
       {children}
     </button>
+  );
+}
+
+function Stat({ label, value, big, toneValue }: { label: string; value: string; big?: boolean; toneValue?: number }) {
+  return (
+    <div className={`px-4 py-3 ${big ? "bg-ink text-paper" : "bg-paper"}`}>
+      <p className={`text-[11px] tracking-widest uppercase ${big ? "text-paper/70" : "text-muted"}`}>{label}</p>
+      <p className={`num mt-1 font-serif ${big ? "text-2xl" : "text-xl"} tracking-tight ${big || toneValue == null ? "" : tone(toneValue)}`}>{value}</p>
+    </div>
   );
 }
 

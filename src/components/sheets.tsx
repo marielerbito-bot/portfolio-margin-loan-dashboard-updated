@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { MoveLevelChart, PriceChart, SeriesChart } from "@/components/charts";
 import { fmtDate, fmtFx, fmtMonth, fmtNum, fmtPct, fmtQty, fmtUsd, Signed, tone } from "@/components/format";
-import { CHART_MAX, CHART_MIN, POSITIONS, REALIZED, REPORT_MAX, REPORT_MIN, SHAREHOLDER, UNDERLYINGS, type CarryIndicator, type ChartPoint, type MovePeriod, type Report } from "@/lib/finance";
+import { CHART_MAX, CHART_MIN, COUPONS, POSITIONS, REALIZED, REPORT_MAX, REPORT_MIN, SHAREHOLDER, UNDERLYINGS, type CarryIndicator, type ChartPoint, type MovePeriod, type Report } from "@/lib/finance";
 
 const PERIODS: { id: MovePeriod; label: string }[] = [
   { id: "day", label: "Daily" },
@@ -380,8 +380,62 @@ export function Movement({
             </tbody>
           </table>
         </div>
+        <FcnObservations asOf={report.reportingDate} />
       </div>
     </section>
+  );
+}
+
+const NOTE_LABEL: Record<string, string> = {
+  "fcn-nvda": "NVDA + AVGO",
+  "fcn-amzn": "AMZN + GOOG",
+};
+
+function FcnObservations({ asOf }: { asOf: string }) {
+  const notes = ["fcn-nvda", "fcn-amzn"] as const;
+  return (
+    <div className="flex flex-col gap-3">
+      <div>
+        <h3 className="font-serif text-xl">FCN observation dates</h3>
+        <p className="mt-1 max-w-2xl text-sm text-muted">The observation schedule on each note. The next date is the first observation on or after the reporting date.</p>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        {notes.map((id) => {
+          const rows = COUPONS.filter((c) => c.note === id).sort((a, b) => a.period - b.period);
+          const next = rows.find((c) => c.observation && c.observation >= asOf);
+          return (
+            <div key={id} className="overflow-x-auto border border-line bg-card">
+              <table className="w-full min-w-[420px] border-collapse text-sm">
+                <thead className="bg-sand text-left text-xs tracking-wide text-muted uppercase">
+                  <tr>
+                    <th className="px-3 py-2 font-medium" colSpan={5}>{NOTE_LABEL[id]}</th>
+                  </tr>
+                  <tr>
+                    {["Period", "Observation date", "Coupon date", "Coupon", "Status"].map((h, i) => (
+                      <th key={h} className={`px-3 py-2 font-medium ${i > 2 ? "text-right" : ""}`}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((c) => {
+                    const upcoming = next?.period === c.period;
+                    return (
+                      <tr key={c.period} className={`border-t border-line ${upcoming ? "bg-sand" : ""}`}>
+                        <td className="px-3 py-2">{c.period}{upcoming ? <span className="ml-2 text-xs tracking-widest text-muted uppercase">Next</span> : null}</td>
+                        <td className="num px-3 py-2">{fmtDate(c.observation)}</td>
+                        <td className="num px-3 py-2">{fmtDate(c.couponDate)}</td>
+                        <td className="num px-3 py-2 text-right">{c.amount == null ? "—" : fmtUsd(c.amount)}</td>
+                        <td className="px-3 py-2 text-right">{c.status || "—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

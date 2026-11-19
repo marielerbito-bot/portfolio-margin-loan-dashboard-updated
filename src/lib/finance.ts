@@ -73,6 +73,8 @@ const book = raw as unknown as {
   }[];
 };
 
+export const COUPONS = book.coupons;
+
 export type PositionDef = {
   id: string;
   name: string;

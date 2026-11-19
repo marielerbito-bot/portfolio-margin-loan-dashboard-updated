@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Analysis } from "@/components/analysis";
 import { LevelChart } from "@/components/charts";
-import { fmtDate, fmtFx, fmtNum, fmtPct, fmtQty, fmtUsd, Signed, tone } from "@/components/format";
-import { Income, LoanFxExposure, Loans, Movement, ShareholdersRoi } from "@/components/sheets";
+import { fmtDate, fmtFx, fmtNum, fmtPct, fmtQty, fmtUsd, tone } from "@/components/format";
+import { Income, InvestmentPositions, Loans, Movement, ShareholdersRoi } from "@/components/sheets";
 import {
   buildReport,
   CHART_MAX,
@@ -16,6 +16,7 @@ import {
 
 const SECTIONS = [
   ["summary", "Summary"],
+  ["positions", "Positions"],
   ["movement", "Daily movement"],
   ["income", "Investment income"],
   ["loans", "Loan expense"],
@@ -62,7 +63,7 @@ export function Dashboard() {
   return (
     <div className="min-h-screen bg-paper text-ink">
       <header className="border-b border-line bg-card">
-        <div className="mx-auto max-w-6xl px-4 pt-6 sm:px-6">
+        <div className="mx-auto max-w-[90rem] px-4 pt-6 sm:px-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex items-center gap-4">
               <div aria-hidden="true" className="grid size-12 shrink-0 place-items-center bg-ink font-serif text-2xl text-paper">
@@ -110,7 +111,7 @@ export function Dashboard() {
         </div>
       </header>
       <nav className="sticky top-0 z-10 border-b border-line bg-paper/95 backdrop-blur" data-print-hide>
-        <div className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4 text-sm sm:px-6">
+        <div className="mx-auto flex max-w-[90rem] gap-1 overflow-x-auto px-4 text-sm sm:px-6">
           {SECTIONS.map(([id, label]) => (
             <button
               key={id}
@@ -126,7 +127,7 @@ export function Dashboard() {
         </div>
       </nav>
 
-      <main className="mx-auto flex min-w-0 max-w-6xl flex-col gap-14 px-4 py-10 sm:px-6">
+      <main className="mx-auto flex min-w-0 max-w-[90rem] flex-col gap-14 px-4 py-10 sm:px-6">
         {report.warnings.length > 0 && (
           <ul className="border border-line bg-sand px-4 py-3 text-sm text-ink">
             {report.warnings.map((w) => (
@@ -149,35 +150,23 @@ export function Dashboard() {
               <div>
                 <p className="text-xs tracking-widest text-muted uppercase">Portfolio holdings</p>
                 <h3 className="mt-1 font-serif text-2xl tracking-tight">Open positions</h3>
-                <p className="mt-1 max-w-2xl text-sm text-muted">Market value at the reporting date. The last column is the unrealized gain or loss since entry, price and foreign exchange together.</p>
+                <p className="mt-1 max-w-2xl text-sm text-muted">Cost, latest price and US dollar value at the reporting date. Price, FX and income detail are on the Positions tab.</p>
               </div>
               <div className="overflow-x-auto border border-line bg-card">
-                <table className="w-full min-w-[1240px] border-collapse text-sm">
-                  <thead className="bg-sand text-left text-[11px] tracking-wide text-muted uppercase">
-                    <tr className="border-b border-line">
-                      <th colSpan={2} className="px-4 py-2.5 font-medium">Holding</th>
-                      <th colSpan={2} className="px-4 py-2.5 text-right font-medium">Cost basis</th>
-                      <th colSpan={4} className="px-4 py-2.5 text-right font-medium">Market value</th>
-                      <th colSpan={2} className="px-4 py-2.5 text-right font-medium">Movement</th>
-                      <th colSpan={3} className="px-4 py-2.5 text-right font-medium">Unrealized gain / (loss)</th>
-                    </tr>
+                <table className="w-full min-w-[980px] border-collapse text-sm">
+                  <thead className="bg-sand text-left text-xs tracking-wide text-muted uppercase">
                     <tr>
                       {[
                         ["Position", "min-w-[11rem]"],
-                        ["Currency", "min-w-[5.5rem]"],
-                        ["Cost", "min-w-[7.5rem] text-right"],
-                        ["Quantity", "min-w-[7.5rem] text-right"],
-                        ["Price", "min-w-[6.5rem] text-right"],
-                        ["Local value", "min-w-[8rem] text-right"],
+                        ["Currency", "min-w-[6rem]"],
+                        ["Cost", "min-w-[8rem] text-right"],
+                        ["Shares", "min-w-[8rem] text-right"],
+                        ["Latest price", "min-w-[7rem] text-right"],
+                        ["Local value", "min-w-[8.5rem] text-right"],
                         ["FX rate", "min-w-[7rem] text-right"],
-                        ["Fair value", "min-w-[8.5rem] text-right"],
-                        ["Price", "min-w-[6.5rem] text-right"],
-                        ["FX", "min-w-[6.5rem] text-right"],
-                        ["Price", "min-w-[8rem] text-right"],
-                        ["FX", "min-w-[8rem] text-right"],
-                        ["Unrealized G/L", "min-w-[9.5rem] text-right"],
+                        ["USD value", "min-w-[8.5rem] text-right"],
                       ].map(([h, cls]) => (
-                        <th key={h + cls} className={`px-4 py-2.5 font-medium whitespace-nowrap ${cls}`}>{h}</th>
+                        <th key={h} className={`px-4 py-2.5 font-medium whitespace-nowrap ${cls}`}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -191,25 +180,15 @@ export function Dashboard() {
                         <td className="px-4 py-3 whitespace-nowrap">{p.ccy}</td>
                         <td className="num px-4 py-3 text-right whitespace-nowrap">{fmtQty(p.cost)}</td>
                         <td className="num px-4 py-3 text-right whitespace-nowrap">{p.units == null ? "—" : p.units.toLocaleString("en-US", { maximumFractionDigits: 3 })}</td>
-                        <td className="num px-4 py-3 text-right whitespace-nowrap">{p.id === "fcn-nvda" || p.id === "fcn-amzn" || p.price == null ? "—" : fmtNum(p.price, 4)}</td>
+                        <td className="num px-4 py-3 text-right whitespace-nowrap">{p.id === "fcn-nvda" || p.id === "fcn-amzn" || p.price == null ? "—" : fmtNum(p.price, 2)}</td>
                         <td className="num px-4 py-3 text-right whitespace-nowrap">{fmtQty(p.local)}</td>
-                        <td className="num px-4 py-3 text-right whitespace-nowrap">{fmtFx(p.fx)}</td>
+                        <td className="num px-4 py-3 text-right whitespace-nowrap">{p.fx == null ? "—" : p.fx.toLocaleString("en-US", { minimumFractionDigits: 5, maximumFractionDigits: 5, useGrouping: false })}</td>
                         <td className="num px-4 py-3 text-right whitespace-nowrap">{fmtUsd(p.usd)}</td>
-                        <td className={`num px-4 py-3 text-right whitespace-nowrap ${tone(p.priceMove)}`}>{fmtPct(p.priceMove)}</td>
-                        <td className={`num px-4 py-3 text-right whitespace-nowrap ${tone(p.fxMove)}`}>{fmtPct(p.fxMove)}</td>
-                        <td className="num px-4 py-3 text-right whitespace-nowrap"><Signed value={p.priceGl} /></td>
-                        <td className="num px-4 py-3 text-right whitespace-nowrap"><Signed value={p.fxGl} /></td>
-                        <td className="num px-4 py-3 text-right whitespace-nowrap font-medium"><Signed value={p.totalGl} /></td>
                       </tr>
                     ))}
                     <tr className="border-t border-ink bg-sand font-medium">
                       <td className="px-4 py-3" colSpan={7}>Portfolio total</td>
                       <td className="num px-4 py-3 text-right whitespace-nowrap">{fmtUsd(report.totals.usd)}</td>
-                      <td />
-                      <td />
-                      <td className="num px-4 py-3 text-right whitespace-nowrap"><Signed value={report.totals.priceGl} /></td>
-                      <td className="num px-4 py-3 text-right whitespace-nowrap"><Signed value={report.totals.fxGl} /></td>
-                      <td className="num px-4 py-3 text-right whitespace-nowrap"><Signed value={report.totals.totalGl} /></td>
                     </tr>
                   </tbody>
                 </table>
@@ -221,10 +200,11 @@ export function Dashboard() {
                   ))}
                 </ul>
               ) : null}
-              <LoanFxExposure report={report} />
               <LoanToValue report={report} />
+              <MarginLoans report={report} />
             </section>
         ) : null}
+        {tab === "positions" ? <InvestmentPositions report={report} /> : null}
         {tab === "movement" ? <Movement report={report} onReporting={setReportingDate} onFrom={setChartFrom} onTo={setChartTo} /> : null}
         {tab === "income" ? <Income report={report} /> : null}
         {tab === "loans" ? <Loans report={report} /> : null}
@@ -387,6 +367,70 @@ function FxDesk({ report }: { report: Report }) {
       </p>
     </div>
   );
+}
+
+function MarginLoans({ report }: { report: Report }) {
+  const [scope, setScope] = useState<"active" | "all">("active");
+  const rows = report.draws
+    .filter((d) => scope === "all" || d.open)
+    .sort((a, b) => drawNo(a.name) - drawNo(b.name));
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <p className="text-xs tracking-widest text-muted uppercase">Funding</p>
+        <h3 className="mt-1 font-serif text-3xl font-medium tracking-tight">Margin loans</h3>
+      </div>
+      <div className="flex gap-2">
+        {(["active", "all"] as const).map((id) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setScope(id)}
+            className={`h-10 rounded-full px-5 text-sm ${scope === id ? "bg-ink text-paper" : "bg-sand text-muted"}`}
+          >
+            {id === "active" ? "Active" : "All"}
+          </button>
+        ))}
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-line bg-card">
+        <table className="w-full min-w-[860px] border-collapse text-sm">
+          <thead className="bg-sand text-left text-xs tracking-wide text-muted uppercase">
+            <tr>
+              {["Draw", "Ccy", "Opened", "Principal", "Rate", "Type", "Status", "USD now"].map((h, i) => (
+                <th key={h} className={`px-4 py-3 font-medium whitespace-nowrap ${i === 3 || i === 4 || i === 7 ? "text-right" : ""}`}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((d) => (
+              <tr key={d.name} className="border-t border-line">
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <div className="font-medium">{d.name}</div>
+                  <div className="text-xs text-muted">{d.ref}</div>
+                </td>
+                <td className="px-4 py-3">{d.ccy}</td>
+                <td className="num px-4 py-3 whitespace-nowrap">{fmtDate(d.start)}</td>
+                <td className="num px-4 py-3 text-right">{Math.round(d.principal).toLocaleString("en-US")}</td>
+                <td className="num px-4 py-3 text-right">{d.rate == null ? "—" : fmtPct(d.rate, 2)}</td>
+                <td className="px-4 py-3 whitespace-nowrap">{d.type} rate</td>
+                <td className="px-4 py-3">
+                  <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${d.open ? "bg-forest-soft text-forest" : "bg-sand text-muted"}`}>
+                    {d.open ? "Active" : "Matured"}
+                  </span>
+                </td>
+                <td className="num px-4 py-3 text-right">{d.open ? fmtUsd(d.principalUsd) : "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function drawNo(name: string) {
+  const n = Number(name.replace(/\D/g, ""));
+  return Number.isFinite(n) ? n : 99;
 }
 
 function bandTone(band: string) {

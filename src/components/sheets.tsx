@@ -703,6 +703,8 @@ export function Loans({ report }: { report: Report }) {
         </table>
       </div>
 
+      <LoanFxExposure report={report} />
+
       <h3 className="font-serif text-xl">Realised FX on repayments</h3>
       <p className="text-sm text-muted">Locked at the historical payment rate. Positive is a gain. This block does not move with the FX toggle.</p>
       <div className="overflow-x-auto border border-line bg-card">
@@ -784,50 +786,343 @@ export function Loans({ report }: { report: Report }) {
   );
 }
 
-function fmtRate(value: number | null | undefined) {
+function fx5(value: number | null | undefined) {
   if (value == null || !Number.isFinite(value)) return "—";
-  return value.toLocaleString("en-US", { minimumFractionDigits: 5, maximumFractionDigits: 6 });
+  return value.toLocaleString("en-US", { minimumFractionDigits: 5, maximumFractionDigits: 5, useGrouping: false });
+}
+
+function roiTone(value: number | null) {
+  if (value == null) return "";
+  if (value <= 0.0005) return "bg-oxblood-soft text-oxblood";
+  if (value >= 0.15) return "bg-forest-soft text-forest";
+  return "bg-sand";
+}
+
+function moveTone(value: number | null) {
+  if (value == null || Math.abs(value) < 0.00005) return "";
+  return value > 0 ? "bg-forest-soft" : "bg-oxblood-soft";
+}
+
+function nextObservation(id: string, asOf: string) {
+  const note = id === "AMZN" || id === "GOOG" ? "fcn-amzn" : "fcn-nvda";
+  const rows = COUPONS.filter((c) => c.note === note && c.observation).sort((a, b) => (a.observation || "").localeCompare(b.observation || ""));
+  return (rows.find((c) => (c.observation || "") >= asOf) || rows[rows.length - 1])?.observation ?? null;
+}
+
+function byCurrency(rows: Report["positions"]) {
+  const map = new Map<string, number>();
+  for (const p of rows) map.set(p.ccy, (map.get(p.ccy) || 0) + (p.usd || 0));
+  const list = [...map.entries()].map(([ccy, usd]) => ({ ccy, usd })).sort((a, b) => b.usd - a.usd);
+  return { list, total: list.reduce((s, r) => s + r.usd, 0) };
+}
+
+export function InvestmentPositions({ report }: { report: Report }) {
+  const rows = report.positions;
+  const meta = new Map(UNDERLYINGS.map((u) => [u.id, u]));
+  const all = byCurrency(rows);
+  const ex = byCurrency(rows.filter((p) => p.id !== "tpc" && p.id !== "concord"));
+  const noPrice = (id: string) => id === "fcn-nvda" || id === "fcn-amzn" || id === "concord";
+  return (
+    <section id="positions" className="flex flex-col gap-8">
+      <SectionTitle
+        kicker="02"
+        title="Investment positions"
+        text="The summary-sheet blocks: income return, market price, the coupon-note shares, foreign exchange, and the combined unrealized result. Figures follow the reporting date."
+      />
+
+      <div className="overflow-x-auto border border-line bg-card">
+        <table className="w-full min-w-[920px] border-collapse text-sm">
+          <thead>
+            <tr><th colSpan={7} className="bg-ink px-4 py-2.5 text-left text-xs tracking-widest text-paper uppercase">Net investment return · active positions</th></tr>
+            <tr className="bg-sand text-left text-xs tracking-wide text-muted uppercase">
+              {["Position", "Acquired", "Currency", "Product", "Investment cost", "Net return", "ROI"].map((h, i) => (
+                <th key={h} className={`px-4 py-2.5 font-medium whitespace-nowrap ${i > 3 ? "text-right" : ""}`}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((p) => (
+              <tr key={p.id} className="border-t border-line">
+                <td className="px-4 py-2.5 font-medium whitespace-nowrap">{p.name}</td>
+                <td className="num px-4 py-2.5 whitespace-nowrap">{fmtDate(p.acquired)}</td>
+                <td className="px-4 py-2.5">{p.ccy}</td>
+                <td className="px-4 py-2.5 whitespace-nowrap">{p.product}</td>
+                <td className="num px-4 py-2.5 text-right whitespace-nowrap">{fmtQty(p.cost)}</td>
+                <td className="num px-4 py-2.5 text-right whitespace-nowrap">{fmtQty(p.carryNominal)}</td>
+                <td className={`num px-4 py-2.5 text-right font-medium ${roiTone(p.carryRoi)}`}>{fmtPct(p.carryRoi, 2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="overflow-x-auto border border-line bg-card">
+        <table className="w-full min-w-[1040px] border-collapse text-sm">
+          <thead>
+            <tr><th colSpan={8} className="bg-ink px-4 py-2.5 text-left text-xs tracking-widest text-paper uppercase">Net investment return · exited positions</th></tr>
+            <tr className="bg-sand text-left text-xs tracking-wide text-muted uppercase">
+              {["Position", "Acquired", "Disposed", "Currency", "Product", "Investment cost", "Net return", "ROI"].map((h, i) => (
+                <th key={h} className={`px-4 py-2.5 font-medium whitespace-nowrap ${i > 4 ? "text-right" : ""}`}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {report.exited.map((e) => {
+              const roi = e.cost ? e.carry / e.cost : null;
+              return (
+                <tr key={`${e.name}-${e.acquired}`} className="border-t border-line">
+                  <td className="px-4 py-2.5 font-medium whitespace-nowrap">{e.name}</td>
+                  <td className="num px-4 py-2.5 whitespace-nowrap">{fmtDate(e.acquired)}</td>
+                  <td className="num px-4 py-2.5 whitespace-nowrap">{fmtDate(e.disposed)}</td>
+                  <td className="px-4 py-2.5">{e.ccy}</td>
+                  <td className="px-4 py-2.5 whitespace-nowrap">{e.product}</td>
+                  <td className="num px-4 py-2.5 text-right whitespace-nowrap">{fmtQty(e.cost)}</td>
+                  <td className="num px-4 py-2.5 text-right whitespace-nowrap">{fmtQty(e.carry)}</td>
+                  <td className={`num px-4 py-2.5 text-right font-medium ${roiTone(roi)}`}>{fmtPct(roi, 2)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="overflow-x-auto border border-line bg-card">
+        <table className="w-full min-w-[1100px] border-collapse text-sm">
+          <thead>
+            <tr><th colSpan={9} className="bg-ink px-4 py-2.5 text-left text-xs tracking-widest text-paper uppercase">Market price movement</th></tr>
+            <tr className="bg-sand text-left text-xs tracking-wide text-muted uppercase">
+              {["Position", "Currency", "Product", "Cost", "Shares", "Latest price", "Local value", "Unrealized G/L", "Price move"].map((h, i) => (
+                <th key={h} className={`px-4 py-2.5 font-medium whitespace-nowrap ${i > 2 ? "text-right" : ""}`}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((p) => (
+              <tr key={p.id} className="border-t border-line">
+                <td className="px-4 py-2.5 font-medium whitespace-nowrap">{p.name}</td>
+                <td className="px-4 py-2.5">{p.ccy}</td>
+                <td className="px-4 py-2.5 whitespace-nowrap">{p.product}</td>
+                <td className="num px-4 py-2.5 text-right whitespace-nowrap">{fmtQty(p.cost)}</td>
+                <td className="num px-4 py-2.5 text-right whitespace-nowrap">{p.units == null ? "—" : p.units.toLocaleString("en-US", { maximumFractionDigits: 3 })}</td>
+                <td className="num px-4 py-2.5 text-right whitespace-nowrap">{noPrice(p.id) || p.price == null ? "—" : fmtNum(p.price, 2)}</td>
+                <td className="num px-4 py-2.5 text-right whitespace-nowrap">{fmtQty(p.local)}</td>
+                <td className={`num px-4 py-2.5 text-right whitespace-nowrap ${tone(p.local - p.cost)}`}>{fmtQty(p.local - p.cost)}</td>
+                <td className={`num px-4 py-2.5 text-right whitespace-nowrap ${moveTone(p.priceMove)}`}><Signed value={p.priceMove} kind="pct" digits={2} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="overflow-x-auto border border-line bg-card">
+        <table className="w-full min-w-[860px] border-collapse text-sm">
+          <thead>
+            <tr><th colSpan={8} className="bg-ink px-4 py-2.5 text-left text-xs tracking-widest text-paper uppercase">FCN underlying stocks</th></tr>
+            <tr className="bg-sand text-left text-xs tracking-wide text-muted uppercase">
+              {["Share", "Purchase", "Target", "Strike %", "Strike", "Price", "Cushion", "Next observation"].map((h, i) => (
+                <th key={h} className={`px-4 py-2.5 font-medium whitespace-nowrap ${i > 0 ? "text-right" : ""}`}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {report.underlyings.map((u) => {
+              const spec = meta.get(u.id);
+              return (
+                <tr key={u.id} className="border-t border-line">
+                  <td className="px-4 py-2.5 font-medium whitespace-nowrap">{u.name} ({u.id})</td>
+                  <td className="num px-4 py-2.5 text-right">{fmtNum(u.purchase, 2)}</td>
+                  <td className="num px-4 py-2.5 text-right">{spec ? fmtNum(spec.target, 2) : "—"}</td>
+                  <td className="num px-4 py-2.5 text-right">{spec ? fmtPct(spec.strikePct, 2) : "—"}</td>
+                  <td className="num px-4 py-2.5 text-right">{fmtNum(u.strike, 2)}</td>
+                  <td className="num px-4 py-2.5 text-right">{u.price == null ? "—" : fmtNum(u.price, 2)}</td>
+                  <td className={`num px-4 py-2.5 text-right font-medium ${moveTone(u.cushion)}`}><Signed value={u.cushion} kind="pct" digits={2} /></td>
+                  <td className="num px-4 py-2.5 text-right whitespace-nowrap">{fmtDate(nextObservation(u.id, report.reportingDate))}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="overflow-x-auto border border-line bg-card">
+        <table className="w-full min-w-[980px] border-collapse text-sm">
+          <thead>
+            <tr><th colSpan={8} className="bg-ink px-4 py-2.5 text-left text-xs tracking-widest text-paper uppercase">Foreign exchange impact</th></tr>
+            <tr className="bg-sand text-left text-xs tracking-wide text-muted uppercase">
+              {["Position", "Currency", "Initial FX", "Current FX", "FX move", "Initial cost (USD)", "Fair value (USD)", "Unrealized G/L"].map((h, i) => (
+                <th key={h} className={`px-4 py-2.5 font-medium whitespace-nowrap ${i > 1 ? "text-right" : ""}`}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((p) => (
+              <tr key={p.id} className="border-t border-line">
+                <td className="px-4 py-2.5 font-medium whitespace-nowrap">{p.name}</td>
+                <td className="px-4 py-2.5">{p.ccy}</td>
+                <td className="num px-4 py-2.5 text-right">{fx5(p.entryFx)}</td>
+                <td className="num px-4 py-2.5 text-right">{fx5(p.fx)}</td>
+                <td className={`num px-4 py-2.5 text-right ${moveTone(p.fxMove)}`}><Signed value={p.fxMove} kind="pct" digits={2} /></td>
+                <td className="num px-4 py-2.5 text-right whitespace-nowrap">{fmtUsd(p.costUsd)}</td>
+                <td className="num px-4 py-2.5 text-right whitespace-nowrap">{fmtUsd(p.usd)}</td>
+                <td className="num px-4 py-2.5 text-right whitespace-nowrap"><Signed value={p.totalGl} /></td>
+              </tr>
+            ))}
+            <tr className="border-t border-ink bg-sand font-medium">
+              <td className="px-4 py-2.5" colSpan={5}>Total</td>
+              <td className="num px-4 py-2.5 text-right">{fmtUsd(report.totals.costUsd)}</td>
+              <td className="num px-4 py-2.5 text-right">{fmtUsd(report.totals.usd)}</td>
+              <td className="num px-4 py-2.5 text-right"><Signed value={report.totals.totalGl} /></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div className="overflow-x-auto border border-line bg-card">
+        <table className="w-full min-w-[980px] border-collapse text-sm">
+          <thead>
+            <tr><th colSpan={7} className="bg-ink px-4 py-2.5 text-left text-xs tracking-widest text-paper uppercase">Combined FX and price impact</th></tr>
+            <tr className="bg-sand text-left text-xs tracking-wide text-muted uppercase">
+              {["Position", "Currency", "Price move", "FX move", "Price G/L", "FX G/L", "Total G/L"].map((h, i) => (
+                <th key={h} className={`px-4 py-2.5 font-medium whitespace-nowrap ${i > 1 ? "text-right" : ""}`}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((p) => (
+              <tr key={p.id} className="border-t border-line">
+                <td className="px-4 py-2.5 font-medium whitespace-nowrap">{p.name}</td>
+                <td className="px-4 py-2.5">{p.ccy}</td>
+                <td className={`num px-4 py-2.5 text-right ${moveTone(p.priceMove)}`}><Signed value={p.priceMove} kind="pct" digits={2} /></td>
+                <td className={`num px-4 py-2.5 text-right ${moveTone(p.fxMove)}`}><Signed value={p.fxMove} kind="pct" digits={2} /></td>
+                <td className="num px-4 py-2.5 text-right whitespace-nowrap"><Signed value={p.priceGl} /></td>
+                <td className="num px-4 py-2.5 text-right whitespace-nowrap"><Signed value={p.fxGl} /></td>
+                <td className="num px-4 py-2.5 text-right whitespace-nowrap font-medium"><Signed value={p.totalGl} /></td>
+              </tr>
+            ))}
+            <tr className="border-t border-ink bg-sand font-medium">
+              <td className="px-4 py-2.5" colSpan={4}>Total</td>
+              <td className="num px-4 py-2.5 text-right"><Signed value={report.totals.priceGl} /></td>
+              <td className="num px-4 py-2.5 text-right"><Signed value={report.totals.fxGl} /></td>
+              <td className="num px-4 py-2.5 text-right"><Signed value={report.totals.totalGl} /></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {[
+          { title: "All investment positions", book: all },
+          { title: "Excluding TPC and Concord Blue", book: ex },
+        ].map((block) => (
+          <div key={block.title} className="overflow-x-auto border border-line bg-card">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr><th colSpan={3} className="bg-ink px-4 py-2.5 text-left text-xs tracking-widest text-paper uppercase">{block.title}</th></tr>
+                <tr className="bg-sand text-left text-xs tracking-wide text-muted uppercase">
+                  <th className="px-4 py-2.5 font-medium">Currency</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Fair value</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Share</th>
+                </tr>
+              </thead>
+              <tbody>
+                {block.book.list.map((r) => (
+                  <tr key={r.ccy} className="border-t border-line">
+                    <td className="px-4 py-2.5 font-medium">{r.ccy}</td>
+                    <td className="num px-4 py-2.5 text-right">{fmtUsd(r.usd)}</td>
+                    <td className="num px-4 py-2.5 text-right">{fmtPct(block.book.total ? r.usd / block.book.total : null, 2)}</td>
+                  </tr>
+                ))}
+                <tr className="border-t border-ink bg-sand font-medium">
+                  <td className="px-4 py-2.5">Total</td>
+                  <td className="num px-4 py-2.5 text-right">{fmtUsd(block.book.total)}</td>
+                  <td className="num px-4 py-2.5 text-right">100.00%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function money2(value: number | null | undefined) {
+  if (value == null || !Number.isFinite(value)) return "—";
+  return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export function LoanFxExposure({ report }: { report: Report }) {
-  const rows = report.draws.filter((d) => d.open);
+  const rows = report.draws.filter((d) => d.open).sort((a, b) => drawNo(a.name) - drawNo(b.name));
   const asOf = report.mode === "monthend" ? report.monthEnd : report.reportingDate;
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
       <div>
         <h3 className="font-serif text-xl">Margin loan FX exposure and all-in gain / (loss)</h3>
-        <p className="text-sm text-muted">
-          + gain / − loss. Current FX is the XE rate on {fmtDate(asOf)}, so it follows the reporting date. A higher USD rate makes the loan more expensive. Interest added is capitalised PIK as a percent of the original principal. All-in is the FX result less that interest.
+        <p className="max-w-3xl text-sm text-muted">
+          + gain / − loss, at the XE rate on {fmtDate(asOf)}. The first table is in dollars. The second is the same result in percent: the FX move since the initial spot, less interest capitalised into principal.
         </p>
       </div>
       <div className="overflow-x-auto border border-line bg-card">
-        <table className="w-full min-w-[980px] border-collapse text-sm">
+        <table className="w-full border-collapse text-sm">
           <thead className="bg-ink text-left text-xs tracking-wide text-paper uppercase">
             <tr>
-              {["Active draws", "Loan reference", "Currency", "Interest type", "Initial spot FX", "Current FX", "FX gain / (loss)", "Interest added to principal", "USD all-in gain / (loss)"].map((h, i) => (
-                <th key={h} className={`px-3 py-2 font-medium ${i > 3 ? "text-right" : ""}`}>{h}</th>
+              {["Active draws", "Interest type", "Currency", "Initial principal", "Current principal", "Initial principal (USD)", "Current principal (USD)", "Capitalized interest (USD)", "Unrealized FX gain / (loss)", "Total all-in gain / (loss)"].map((h, i) => (
+                <th key={h} className={`px-3 py-2.5 font-medium ${i > 2 ? "text-right" : ""}`}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((d) => {
+              const currentUsd = d.fx == null ? null : d.principal * d.fx;
+              const capUsd = d.entryFx ? (d.principal - d.original) * d.entryFx : null;
+              const unrealized = currentUsd != null && d.entryFx ? d.principal * d.entryFx - currentUsd : null;
+              const allIn = unrealized != null && capUsd != null ? unrealized - capUsd : null;
+              return (
+                <tr key={d.name} className="border-t border-line">
+                  <td className="px-3 py-3 font-medium whitespace-nowrap">{d.name}</td>
+                  <td className="px-3 py-3 whitespace-nowrap">{d.type} rate</td>
+                  <td className="px-3 py-3">{d.ccy}</td>
+                  <td className="num px-3 py-3 text-right whitespace-nowrap">{money2(d.original)}</td>
+                  <td className="num px-3 py-3 text-right whitespace-nowrap">{money2(d.principal)}</td>
+                  <td className="num px-3 py-3 text-right whitespace-nowrap">{money2(d.entryUsd)}</td>
+                  <td className="num px-3 py-3 text-right whitespace-nowrap">{money2(currentUsd)}</td>
+                  <td className="num px-3 py-3 text-right whitespace-nowrap">{capUsd != null && Math.abs(capUsd) < 0.5 ? "—" : money2(capUsd)}</td>
+                  <td className="num px-3 py-3 text-right whitespace-nowrap"><Signed value={unrealized} /></td>
+                  <td className="num px-3 py-3 text-right whitespace-nowrap font-medium"><Signed value={allIn} /></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="overflow-x-auto border border-line bg-card">
+        <table className="w-full border-collapse text-sm">
+          <thead className="bg-ink text-left text-xs tracking-wide text-paper uppercase">
+            <tr>
+              {["Active draws", "Loan reference", "Currency", "Interest type", "Initial spot FX", "Current FX rate", "FX gain / (loss)", "Interest added to principal", "USD all-in gain / (loss)"].map((h, i) => (
+                <th key={h} className={`px-3 py-2.5 font-medium ${i > 3 ? "text-right" : ""}`}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {rows.map((d) => {
               const fx = d.fx == null || !d.entryFx ? null : 1 - d.fx / d.entryFx;
-              const added = d.pay === "PIK" && d.original ? (d.principal - d.original) / d.original : null;
+              const added = d.pay === "PIK" && d.original && d.principal - d.original > 0.5 ? (d.principal - d.original) / d.original : null;
               const allIn = fx == null ? null : fx - (added || 0);
               const ref = d.ref.replace(/^D\d+-/, "");
               return (
                 <tr key={d.name} className="border-t border-line">
-                  <td className="px-3 py-2 font-medium">{d.name}</td>
-                  <td className="num px-3 py-2">{ref}</td>
-                  <td className="px-3 py-2">{d.ccy}</td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-3 font-medium whitespace-nowrap">{d.name}</td>
+                  <td className="num px-3 py-3">{ref}</td>
+                  <td className="px-3 py-3">{d.ccy}</td>
+                  <td className="px-3 py-3">
                     <span className={`inline-block px-2 py-0.5 text-xs font-medium ${d.type === "Floating" ? "bg-oxblood-soft text-oxblood" : "bg-forest-soft text-forest"}`}>{d.type}</span>
                   </td>
-                  <td className="num px-3 py-2 text-right">{fmtRate(d.entryFx)}</td>
-                  <td className="num px-3 py-2 text-right">{fmtRate(d.fx)}</td>
-                  <td className="num px-3 py-2 text-right"><Signed value={fx} kind="pct" digits={2} /></td>
-                  <td className="num px-3 py-2 text-right">{added == null ? "" : fmtPct(added, 2)}</td>
-                  <td className="num px-3 py-2 text-right"><Signed value={allIn} kind="pct" digits={2} /></td>
+                  <td className="num px-3 py-3 text-right">{d.entryFx.toLocaleString("en-US", { minimumFractionDigits: 5, maximumFractionDigits: 5, useGrouping: false })}</td>
+                  <td className="num bg-sand px-3 py-3 text-right">{d.fx == null ? "—" : d.fx.toLocaleString("en-US", { minimumFractionDigits: 6, maximumFractionDigits: 6, useGrouping: false })}</td>
+                  <td className="num px-3 py-3 text-right"><Signed value={fx} kind="pct" digits={2} /></td>
+                  <td className="num px-3 py-3 text-right">{added == null ? "" : fmtPct(added, 2)}</td>
+                  <td className="num px-3 py-3 text-right font-medium"><Signed value={allIn} kind="pct" digits={2} /></td>
                 </tr>
               );
             })}
@@ -836,6 +1131,11 @@ export function LoanFxExposure({ report }: { report: Report }) {
       </div>
     </div>
   );
+}
+
+function drawNo(name: string) {
+  const n = Number(name.replace(/\D/g, ""));
+  return Number.isFinite(n) ? n : 99;
 }
 
 function MonthBlock({
@@ -878,7 +1178,7 @@ function MonthBlock({
           <td className="num px-3 py-2 text-right">{r.repaid ? fmtQty(r.repaid) : "—"}</td>
           <td className="num px-3 py-2 text-right">{r.repaid ? fmtUsd(r.repaidUsd) : "—"}</td>
           <td className="num px-3 py-2 text-right">{fmtQty(r.owed)}</td>
-          <td className="num px-3 py-2 text-right">{fmtFx(r.citi)}</td>
+          <td className="num px-3 py-2 text-right">{r.citi == null ? "—" : r.citi.toLocaleString("en-US", { minimumFractionDigits: 5, maximumFractionDigits: 5, useGrouping: false })}</td>
         </tr>
       ))}
     </>

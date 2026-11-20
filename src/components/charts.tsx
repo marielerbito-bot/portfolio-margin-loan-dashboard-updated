@@ -192,11 +192,34 @@ export function MoveLevelChart({
           <CartesianGrid stroke={GRID} vertical={false} />
           <XAxis dataKey="date" tickFormatter={shortDate} tick={{ fill: AXIS, fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={28} />
           <YAxis domain={[lo - pad, hi + pad]} tickFormatter={fmt} tick={{ fill: AXIS, fontSize: 11 }} tickLine={false} axisLine={false} width={digits > 4 ? 78 : digits > 2 ? 64 : 52} />
-          <Tooltip contentStyle={tipStyle()} labelFormatter={(l) => fmtDate(String(l))} formatter={(v, label) => [fmt(Number(v)), label]} />
+          <Tooltip
+            content={({ active, payload, label }) => {
+              if (!active || !payload?.length) return null;
+              const point = payload.find((p) => p.dataKey === "value");
+              return (
+                <div style={tipStyle()} className="px-2.5 py-1.5">
+                  <p>{fmtDate(String(label))}</p>
+                  <p>
+                    {name}: {point?.value == null ? "—" : fmt(Number(point.value))}
+                  </p>
+                  {reference != null && Number.isFinite(reference) ? (
+                    <p style={{ color: "var(--color-oxblood)" }}>
+                      {referenceLabel}: {fmt(reference)}
+                    </p>
+                  ) : null}
+                </div>
+              );
+            }}
+          />
           <Legend wrapperStyle={{ fontSize: 12 }} />
           <Line type="monotone" dataKey="value" name={name} stroke="var(--color-s1)" strokeWidth={1.75} dot={false} />
           {reference != null && Number.isFinite(reference) ? (
-            <ReferenceLine y={reference} stroke="var(--color-oxblood)" strokeDasharray="4 3" label={{ value: referenceLabel, fill: "var(--color-oxblood)", fontSize: 11 }} />
+            <ReferenceLine
+              y={reference}
+              stroke="var(--color-oxblood)"
+              strokeDasharray="4 3"
+              label={{ value: `${referenceLabel} ${fmt(reference)}`, fill: "var(--color-oxblood)", fontSize: 11 }}
+            />
           ) : null}
         </LineChart>
       </ResponsiveContainer>

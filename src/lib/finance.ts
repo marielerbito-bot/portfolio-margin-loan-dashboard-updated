@@ -24,9 +24,9 @@ export const MONTH_ENDS = [
 ] as const;
 
 export const REPORT_MIN = "2025-06-03";
-export const REPORT_MAX = "2026-11-18";
+export const REPORT_MAX = "2026-11-19";
 export const CHART_MIN = "2026-04-01";
-export const CHART_MAX = "2026-11-18";
+export const CHART_MAX = "2026-11-19";
 
 type Pair = [string, number];
 

@@ -640,7 +640,7 @@ export function Loans({ report }: { report: Report }) {
     <section id="loans" className="flex flex-col gap-6">
       <SectionTitle
         kicker="04"
-        title="Loan expense"
+        title="Margin loan"
         text="Each row is a month on the loan expense sheet. Accrued interest, interest settled and principal repaid are shown in nominal and in USD. USD on this schedule is nominal times the Citi rate on that row — columns T and W."
       />
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -1066,7 +1066,7 @@ export function LoanFxExposure({ report }: { report: Report }) {
         <table className="w-full border-collapse text-sm">
           <thead className="bg-ink text-left text-xs tracking-wide text-paper uppercase">
             <tr>
-              {["Active draws", "Interest type", "Currency", "Initial principal", "Current principal", "Initial principal (USD)", "Current principal (USD)", "Capitalized interest (USD)", "Unrealized FX gain / (loss)", "USD all in cost"].map((h, i) => (
+              {["Active draws", "Interest type", "Currency", "Initial principal", "Current principal", "Initial principal (USD)", "Current principal (USD)", "Capitalized interest (USD)", "Unrealized FX gain / (loss)", "Net Economic Impact (USD)"].map((h, i) => (
                 <th key={h} className={`px-3 py-2.5 font-medium ${i > 2 ? "text-right" : ""}`}>{h}</th>
               ))}
             </tr>
@@ -1099,7 +1099,7 @@ export function LoanFxExposure({ report }: { report: Report }) {
         <table className="w-full border-collapse text-sm">
           <thead className="bg-ink text-left text-xs tracking-wide text-paper uppercase">
             <tr>
-              {["Active draws", "Loan reference", "Currency", "Interest type", "Initial spot FX", "Current FX rate", "FX gain / (loss)", "Interest added to principal", "USD all in cost"].map((h, i) => (
+              {["Active draws", "Loan reference", "Currency", "Interest type", "Initial spot FX", "Current FX rate", "FX gain / (loss)", "Interest added to principal", "Net Economic Impact (USD)"].map((h, i) => (
                 <th key={h} className={`px-3 py-2.5 font-medium ${i > 3 ? "text-right" : ""}`}>{h}</th>
               ))}
             </tr>

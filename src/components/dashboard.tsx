@@ -19,7 +19,7 @@ const SECTIONS = [
   ["positions", "Positions"],
   ["movement", "Daily movement"],
   ["income", "Investment income"],
-  ["loans", "Loan expense"],
+  ["loans", "Margin loan"],
   ["analysis", "Analysis"],
 ] as const;
 

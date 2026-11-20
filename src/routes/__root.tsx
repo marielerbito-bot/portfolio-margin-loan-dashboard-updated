@@ -9,7 +9,7 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Portfolio & Margin Loan — Corporate report" },
-      { name: "description", content: "Corporate view of portfolio movement, investment income and margin-loan expense. The summary is on XE. Loan expense stays on the Citi month-end rate." },
+      { name: "description", content: "Corporate view of portfolio movement, investment income and the margin loan. The summary is on XE. The margin loan stays on the Citi month-end rate." },
       { name: "theme-color", content: "#f3f0e8" },
     ],
     links: [

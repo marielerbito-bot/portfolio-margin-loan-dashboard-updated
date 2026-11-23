@@ -221,7 +221,7 @@ export const DRAWS: DrawDef[] = [
   { id: "D9", name: "Draw 9", ref: "D9-3331", ccy: "CHF", start: "2026-06-03", original: 411518.21, entryFx: 1.2668651528203332, type: "Fixed", pay: "Cash", matured: false, maturity: "2026-12-03" },
   { id: "D10", name: "Draw 10", ref: "D10-4166", ccy: "CHF", start: "2026-06-22", original: 166939, entryFx: 1.2370113634321518, type: "Fixed", pay: "Cash", matured: false, maturity: "2026-12-22" },
   { id: "D11", name: "Draw 11", ref: "D11-8141", ccy: "SGD", start: "2026-09-28", original: 355886.12, entryFx: 0.7825338341377293, type: "Floating", pay: "PIK", matured: false, maturity: null },
-  { id: "D12", name: "Draw 12", ref: "D10-8533", ccy: "CHF", start: "2026-10-07", original: 241442.95, entryFx: 1.2014176847988314, type: "Fixed", pay: "Cash", matured: false, maturity: null },
+  { id: "D12", name: "Draw 12", ref: "D10-8533", ccy: "CHF", start: "2026-10-07", original: 241442.95, entryFx: 1.2014176847988314, type: "Fixed", pay: "Cash", matured: false, maturity: "2027-01-07" },
 ];
 
 export const COLLATERAL = [

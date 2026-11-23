@@ -396,8 +396,8 @@ function MarginLoans({ report }: { report: Report }) {
         <table className="w-full min-w-[860px] border-collapse text-sm">
           <thead className="bg-sand text-left text-xs tracking-wide text-muted uppercase">
             <tr>
-              {["Draw", "Ccy", "Opened", "Principal", "Rate", "Type", "Status", "USD now"].map((h, i) => (
-                <th key={h} className={`px-4 py-3 font-medium whitespace-nowrap ${i === 3 || i === 4 || i === 7 ? "text-right" : ""}`}>{h}</th>
+              {["Draw", "Ccy", "Opened", "Maturity", "Principal", "Rate", "Type", "Status", "USD now"].map((h, i) => (
+                <th key={h} className={`px-4 py-3 font-medium whitespace-nowrap ${i === 4 || i === 5 || i === 8 ? "text-right" : ""}`}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -410,6 +410,7 @@ function MarginLoans({ report }: { report: Report }) {
                 </td>
                 <td className="px-4 py-3">{d.ccy}</td>
                 <td className="num px-4 py-3 whitespace-nowrap">{fmtDate(d.start)}</td>
+                <td className="num px-4 py-3 whitespace-nowrap">{fmtDate(d.maturity)}</td>
                 <td className="num px-4 py-3 text-right">{Math.round(d.principal).toLocaleString("en-US")}</td>
                 <td className="num px-4 py-3 text-right">{d.rate == null ? "—" : fmtPct(d.rate, 2)}</td>
                 <td className="px-4 py-3 whitespace-nowrap">{d.type} rate</td>

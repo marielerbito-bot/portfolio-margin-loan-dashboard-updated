@@ -411,7 +411,7 @@ function MarginLoans({ report }: { report: Report }) {
                 <td className="px-4 py-3">{d.ccy}</td>
                 <td className="num px-4 py-3 whitespace-nowrap">{fmtDate(d.start)}</td>
                 <td className="num px-4 py-3 whitespace-nowrap">{fmtDate(d.maturity)}</td>
-                <td className="num px-4 py-3 text-right">{Math.round(d.principal).toLocaleString("en-US")}</td>
+                <td className="num px-4 py-3 text-right">{fmtQty(d.principal)}</td>
                 <td className="num px-4 py-3 text-right">{d.rate == null ? "—" : fmtPct(d.rate, 2)}</td>
                 <td className="px-4 py-3 whitespace-nowrap">{d.type} rate</td>
                 <td className="px-4 py-3">

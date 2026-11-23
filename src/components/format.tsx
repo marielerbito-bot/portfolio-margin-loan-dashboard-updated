@@ -20,10 +20,9 @@ export function fmtMonth(ym: string) {
 
 export function fmtUsd(value: number | null | undefined) {
   if (value == null || !Number.isFinite(value)) return "—";
-  const digits = Math.abs(value) >= 1000 || Math.abs(value) < 0.005 ? 0 : 2;
   const abs = Math.abs(value).toLocaleString("en-US", {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   });
   return value < -0.005 ? `($${abs})` : `$${abs}`;
 }
@@ -57,7 +56,7 @@ export function fmtNum(value: number | null | undefined, digits = 2) {
 
 export function fmtQty(value: number | null | undefined) {
   if (value == null || !Number.isFinite(value)) return "—";
-  return value.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export function tone(value: number | null | undefined) {

@@ -1,4 +1,5 @@
 import raw from "@/data/book.json";
+import statementRaw from "@/data/statement.json";
 
 export type FxSource = "xe" | "citi";
 export type RateMode = "spot" | "monthend";
@@ -74,6 +75,13 @@ const book = raw as unknown as {
 };
 
 export const COUPONS = book.coupons;
+
+type StatementMark = { date: string; price: number | null; local: number; usd: number };
+const statement = statementRaw as Record<string, StatementMark[]>;
+
+function statementMark(id: string, monthEnd: string): StatementMark | null {
+  return statement[id]?.find((row) => row.date === monthEnd) ?? null;
+}
 
 export type PositionDef = {
   id: string;
@@ -720,16 +728,25 @@ function contractualCarry(p: PositionDef, date: string) {
 }
 
 function snapshotPositions(date: string, source: FxSource, mode: RateMode, monthEnd: string): PositionRow[] {
+  const asOf = mode === "monthend" ? monthEnd : date;
   const opts: Options = { reportingDate: date, chartFrom: date, chartTo: date, source, mode, monthEnd };
-  return POSITIONS.filter((p) => p.acquired <= date).map((p) => {
-    const lv = localValue(p, date);
-    const fx = valuationHit(p.ccy, opts);
-    const usd = fx ? lv.local * fx.rate : null;
+  return POSITIONS.filter((p) => p.acquired <= asOf).map((p) => {
+    const mark = mode === "monthend" ? statementMark(p.id, monthEnd) : null;
+    const lv = mark
+      ? { local: mark.local, price: mark.price, asOf: monthEnd, note: null as string | null }
+      : localValue(p, asOf);
+    let fx = valuationHit(p.ccy, { ...opts, reportingDate: asOf });
+    let usd = fx ? lv.local * fx.rate : null;
+    if (mark && source === "citi" && mark.local) {
+      const rate = mark.usd / mark.local;
+      fx = { rate, asOf: monthEnd, source: "citi", fallback: false };
+      usd = mark.usd;
+    }
     const priceMove = p.cost ? lv.local / p.cost - 1 : null;
     const fxMove = fx ? fx.rate / p.entryFx - 1 : null;
     const priceGl = priceMove == null ? null : p.costUsd * priceMove;
     const fxGl = fx ? lv.local * (fx.rate - p.entryFx) : null;
-    const totalGl = priceGl != null && fxGl != null ? priceGl + fxGl : null;
+    const totalGl = usd != null ? usd - p.costUsd : priceGl != null && fxGl != null ? priceGl + fxGl : null;
     const carryNominal = contractualCarry(p, date);
     return {
       id: p.id,
@@ -1597,7 +1614,9 @@ export function buildReport(input: Options): Report {
   if (opts.mode === "monthend" && opts.source === "xe" && fxDate < book.xeStart) {
     warnings.push(`XE closes begin ${book.xeStart}. This month-end is earlier, so most balance-sheet rates are unavailable.`);
   }
-  if (opts.source === "citi") {
+  if (opts.mode === "monthend" && opts.source === "citi") {
+    warnings.push("Investment fair values are the Citibank month-end statement. The Citi rate is the statement’s US dollar value divided by the value in the position currency. Loans use the Citi print on the loan sheet.");
+  } else if (opts.source === "citi") {
     warnings.push("Citi rates are the prints on each loan-expense row (sheet columns T and W) for SGD, HKD and CHF. AUD and EUR have no Citi print, so they stay on XE.");
   }
   if (opts.reportingDate < book.priceStart) {

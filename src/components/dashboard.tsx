@@ -10,6 +10,7 @@ import {
   priceNote,
   REPORT_MAX,
   REPORT_MIN,
+  type FxSource,
   type RateMode,
   type Report,
 } from "@/lib/finance";
@@ -30,10 +31,11 @@ export function Dashboard() {
   const [chartFrom, setChartFrom] = useState("2026-09-30");
   const [chartTo, setChartTo] = useState(CHART_MAX);
   const [mode, setMode] = useState<RateMode>("spot");
+  const [monthSource, setMonthSource] = useState<FxSource>("citi");
   const [monthEnd, setMonthEnd] = useState<string>(MONTH_ENDS[MONTH_ENDS.length - 1]);
   const report = useMemo(
-    () => buildReport({ reportingDate, chartFrom, chartTo, source: "xe", mode, monthEnd }),
-    [reportingDate, chartFrom, chartTo, mode, monthEnd],
+    () => buildReport({ reportingDate, chartFrom, chartTo, source: mode === "monthend" ? monthSource : "xe", mode, monthEnd }),
+    [reportingDate, chartFrom, chartTo, mode, monthEnd, monthSource],
   );
   const net = report.totals.usd - report.loanTotals.owedUsd;
   const worst = report.ltv.filter((g) => g.ltv != null).sort((a, b) => (b.ltv as number) - (a.ltv as number)).map((g) => ({ name: g.name, ltv: g.ltv as number, band: g.band }))[0];
@@ -81,12 +83,18 @@ export function Dashboard() {
               onMode={setMode}
               monthEnd={monthEnd}
               onMonthEnd={setMonthEnd}
+              monthSource={monthSource}
+              onMonthSource={setMonthSource}
             />
           </div>
           <p className="mt-4 text-sm text-muted">
             As of <span className="font-medium text-ink">{fmtDate(report.reportingDate)}</span>
             <span aria-hidden="true"> · </span>
-            {mode === "spot" ? "valued at spot XE rates" : `valued at ${fmtDate(monthEnd)} month-end XE rates`}
+            {mode === "spot"
+              ? "valued at spot XE rates"
+              : monthSource === "citi"
+                ? `valued at ${fmtDate(monthEnd)} month-end Citi rates`
+                : `valued at ${fmtDate(monthEnd)} month-end XE rates`}
             <span aria-hidden="true"> · </span>
             prices and rates in US dollars
           </p>
@@ -221,6 +229,8 @@ function Controls(props: {
   onMode: (v: RateMode) => void;
   monthEnd: string;
   onMonthEnd: (v: string) => void;
+  monthSource: FxSource;
+  onMonthSource: (v: FxSource) => void;
 }) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -232,18 +242,27 @@ function Controls(props: {
         <span className="text-xs tracking-widest text-muted uppercase">Valuation FX</span>
         <div className="flex">
           <Seg on={props.mode === "spot"} onClick={() => props.onMode("spot")}>Spot XE</Seg>
-          <Seg on={props.mode === "monthend"} onClick={() => props.onMode("monthend")}>Month-end XE</Seg>
+          <Seg on={props.mode === "monthend"} onClick={() => props.onMode("monthend")}>Month-end</Seg>
         </div>
       </div>
       {props.mode === "monthend" ? (
-        <label className="flex flex-col gap-1 text-xs tracking-widest text-muted uppercase">
-          Month-end
-          <select value={props.monthEnd} onChange={(e) => props.onMonthEnd(e.target.value)} className={fieldClass}>
-            {MONTH_ENDS.map((d) => (
-              <option key={d} value={d}>{fmtDate(d)}</option>
-            ))}
-          </select>
-        </label>
+        <>
+          <label className="flex flex-col gap-1 text-xs tracking-widest text-muted uppercase">
+            Month-end
+            <select value={props.monthEnd} onChange={(e) => props.onMonthEnd(e.target.value)} className={fieldClass}>
+              {MONTH_ENDS.map((d) => (
+                <option key={d} value={d}>{fmtDate(d)}</option>
+              ))}
+            </select>
+          </label>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs tracking-widest text-muted uppercase">Month-end rate</span>
+            <div className="flex">
+              <Seg on={props.monthSource === "citi"} onClick={() => props.onMonthSource("citi")}>Citi</Seg>
+              <Seg on={props.monthSource === "xe"} onClick={() => props.onMonthSource("xe")}>XE</Seg>
+            </div>
+          </div>
+        </>
       ) : null}
     </div>
   );

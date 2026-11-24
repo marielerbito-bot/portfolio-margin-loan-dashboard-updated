@@ -57,6 +57,16 @@ export function Dashboard() {
     return () => window.removeEventListener("hashchange", fromHash);
   }, []);
 
+  function openMonthEnd() {
+    setMode("monthend");
+    setReportingDate(monthEnd);
+  }
+
+  function chooseMonthEnd(date: string) {
+    setMonthEnd(date);
+    setReportingDate(date);
+  }
+
   function openTab(id: (typeof SECTIONS)[number][0]) {
     setTab(id);
     window.history.replaceState(null, "", `#${id}`);
@@ -81,8 +91,9 @@ export function Dashboard() {
               onReporting={setReportingDate}
               mode={mode}
               onMode={setMode}
+              onMonthMode={openMonthEnd}
               monthEnd={monthEnd}
-              onMonthEnd={setMonthEnd}
+              onMonthEnd={chooseMonthEnd}
               monthSource={monthSource}
               onMonthSource={setMonthSource}
             />
@@ -227,6 +238,7 @@ function Controls(props: {
   onReporting: (v: string) => void;
   mode: RateMode;
   onMode: (v: RateMode) => void;
+  onMonthMode: () => void;
   monthEnd: string;
   onMonthEnd: (v: string) => void;
   monthSource: FxSource;
@@ -236,13 +248,13 @@ function Controls(props: {
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
       <label className="flex flex-col gap-1 text-xs tracking-widest text-muted uppercase">
         Reporting date
-        <input type="date" min={REPORT_MIN} max={REPORT_MAX} value={props.reportingDate} onChange={(e) => e.target.value && props.onReporting(e.target.value)} className={fieldClass} />
+        <input type="date" min={REPORT_MIN} max={REPORT_MAX} value={props.reportingDate} disabled={props.mode === "monthend"} onChange={(e) => e.target.value && props.onReporting(e.target.value)} className={fieldClass} />
       </label>
       <div className="flex flex-col gap-1">
         <span className="text-xs tracking-widest text-muted uppercase">Valuation FX</span>
         <div className="flex">
           <Seg on={props.mode === "spot"} onClick={() => props.onMode("spot")}>Spot XE</Seg>
-          <Seg on={props.mode === "monthend"} onClick={() => props.onMode("monthend")}>Month-end</Seg>
+          <Seg on={props.mode === "monthend"} onClick={props.onMonthMode}>Month-end</Seg>
         </div>
       </div>
       {props.mode === "monthend" ? (
